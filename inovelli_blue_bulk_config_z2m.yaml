@@ -3,7 +3,7 @@ blueprint:
   description: >
     # 💡 Inovelli Blue Series Bulk Configuration (Zigbee2MQTT)
 
-    **Version: 1.0**
+    **Version: 1.01**
 
 
     ## One automation that can push settings to one or multiple Inovelli Blue Series devices at the same time!
@@ -1855,14 +1855,34 @@ action:
             {% endif %}
           {% endfor %}
         {% endif %}
+        {# Check Floors #}
+        {% if raw_targets.floor_id is defined and raw_targets.floor_id %}
+          {% set f = raw_targets.floor_id %}
+          {% set f_list = [f] if f is string else f %}
+          {% for floor in f_list %}
+            {% for area in floor_areas(floor) %}
+              {% for entity in area_entities(area) %}
+                {% set dev_id = device_id(entity) %}
+                {% if dev_id and dev_id not in ns.devices %}
+                  {% if device_attr(dev_id, 'manufacturer') == 'Inovelli'
+                        and device_attr(dev_id, 'model') in valid_models %}
+                    {% set ns.devices = ns.devices + [dev_id] %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+        {% endif %}
         {# Check Areas #}
         {% if raw_targets.area_id is defined and raw_targets.area_id %}
           {% set a = raw_targets.area_id %}
           {% set a_list = [a] if a is string else a %}
           {% for area in a_list %}
-            {% for dev_id in area_devices(area) %}
+            {% for entity in area_entities(area) %}
+              {% set dev_id = device_id(entity) %}
               {% if dev_id and dev_id not in ns.devices %}
-                {% if device_attr(dev_id, 'manufacturer') == 'Inovelli' and device_attr(dev_id, 'model') in valid_models %}
+                {% if device_attr(dev_id, 'manufacturer') == 'Inovelli'
+                      and device_attr(dev_id, 'model') in valid_models %}
                   {% set ns.devices = ns.devices + [dev_id] %}
                 {% endif %}
               {% endif %}
