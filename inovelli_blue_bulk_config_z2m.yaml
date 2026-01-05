@@ -3,7 +3,7 @@ blueprint:
   description: >
     # 💡 Inovelli Blue Series Bulk Configuration (Zigbee2MQTT)
 
-    **Version: 1.02**
+    **Version: 1.03**
 
 
     ## One automation that can push settings to one or multiple Inovelli Blue Series devices at the same time!
@@ -2584,6 +2584,6 @@ action:
     data:
       title: "{{ ui_title }}"
       message: "Successfully configured {{ target_devices | count }} device(s):{{'\n'}}{{ device_names_string }}"
-      notification_id: "inovelli_sync_complete"
+      notification_id: "inovelli_sync_{{ this.entity_id }}"
 
 mode: single
