@@ -299,7 +299,7 @@ blueprint:
     # ========================================
     christmas_section:
       name: >
-        ## 🎄 Christmas / ❄️ Winter Holiday
+        ## 🎄 Christmas / 🎁 Winter Holiday
       description: >
         ### Configure Christmas or any other winter holiday season settings. Christmas is December 25th. This season is able to span across the year boundary (Nov/Dec - Jan).
 
