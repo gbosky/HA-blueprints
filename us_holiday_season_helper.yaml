@@ -1,0 +1,533 @@
+blueprint:
+  name: 🎉 Holiday Season Helper (U.S.)
+  description: >
+    # 🎉 U.S. Holiday Season Helper
+
+    **Version: 1.0**
+
+
+    ## Automatically manage US holiday seasons and update an input_select entity!
+
+
+    ### Supported Holidays:
+      - ### Valentines Day (Default: Feb 1-15)
+      - ### St. Patrick's Day (Default: Mar 10-18)
+      - ### Easter (Default: 7 days before through 1 day after)
+      - ### 4th of July (Default: Jun 20 - Jul 5)
+      - ### Halloween (Default: Oct 1 - Nov 1)
+      - ### Thanksgiving (Default: 7 days before through Thanksgiving)
+      - ### Christmas (Default: After Thanksgiving - Dec 27)
+      - ### New Years (Default: Dec 28 - Jan 3)
+
+
+    <details>
+    <summary><b>Automation Details:</b> 👈</summary>
+      - **Input Select Entity:**
+        - You must provide an input_select entity that will be updated with the current holiday
+        - ⚠️ **IMPORTANT:** Customize the holiday names to match your input_select options exactly (case-sensitive, no leading/trailing spaces)
+        - If a holiday name doesn't match any option in your input_select, it will be skipped and treated as "No Holiday"
+        - This allows you to only set up the holidays you want to use
+      
+      - **Trigger:**
+        - Runs daily at midnight to check the current date
+        - Also runs on Home Assistant startup
+      
+      - **Holiday Seasons:**
+        - Customize the name for each holiday to match your input_select options
+        - Leave the default name if you want to use that holiday, or change it to match your input_select
+        - If a holiday name is blank or doesn't exist in your input_select, it will be skipped
+        - Start and end dates are customizable for each holiday. Defaults to a week before and day after on minor holidays. Major hoildays are a few weeks or month before to a few days after.
+        - All dates are inclusive
+        - Easter and Thanksgiving dates are automatically calculated each year
+      
+      - **Date Calculations:**
+        - Easter uses the Computus algorithm for accurate yearly calculation
+        - Thanksgiving automatically finds the 4th Thursday of November
+        - All other holidays use simple month/day ranges
+        
+    </details>
+
+  domain: automation
+  input:
+    # ========================================
+    # INPUT SELECT ENTITY
+    # ========================================
+    input_select_entity:
+      name: Input Select Entity
+      description: "The input_select entity to update with the current holiday. Customize each holiday name below to match your input_select options exactly (case-sensitive, no extra spaces, include punctuation). If a holiday name doesn't exist in your input_select, it will be skipped and default to the no holiday text set below."
+      selector:
+        entity:
+          domain: input_select
+
+    no_holiday_name:
+      name: "No Holiday Name"
+      description: "Name to use in input_select when no holiday is active. Customize to match your input_select options."
+      default: "No Holiday"
+      selector:
+        text:
+
+    # ========================================
+    # VALENTINE'S DAY
+    # ========================================
+    valentines_section:
+      name: >
+        ## 💕 Valentines Day
+      description: >
+        ### Configure Valentines Day season settings. Valentines Day is February 14th.
+
+      collapsed: true
+      input:
+        valentines_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly)."
+          default: "Valentines"
+          selector:
+            text:
+
+        valentines_start_month:
+          name: "Start Month"
+          description: "Month when Valentines season begins"
+          default: 2
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        valentines_start_day:
+          name: "Start Day"
+          description: "Day when Valentines season begins"
+          default: 1
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+        valentines_end_month:
+          name: "End Month"
+          description: "Month when Valentines season ends"
+          default: 2
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        valentines_end_day:
+          name: "End Day"
+          description: "Day when Valentines season ends"
+          default: 15
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+    # ========================================
+    # ST. PATRICK'S DAY
+    # ========================================
+    st_patrick_section:
+      name: >
+        ## 🍀 St. Patrick's Day
+      description: >
+        ### Configure St. Patrick's Day season settings. St. Patrick's Day is March 17th.
+
+      collapsed: true
+      input:
+        st_patrick_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly)."
+          default: "St. Patrick's"
+          selector:
+            text:
+
+        st_patrick_start_month:
+          name: "Start Month"
+          description: "Month when St. Patrick's season begins"
+          default: 3
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        st_patrick_start_day:
+          name: "Start Day"
+          description: "Day when St. Patrick's season begins"
+          default: 10
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+        st_patrick_end_month:
+          name: "End Month"
+          description: "Month when St. Patrick's season ends"
+          default: 3
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        st_patrick_end_day:
+          name: "End Day"
+          description: "Day when St. Patrick's season ends"
+          default: 18
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+    # ========================================
+    # EASTER
+    # ========================================
+    easter_section:
+      name: >
+        ## 🐰 Easter
+      description: >
+        ### Configure Easter season settings. Easter is calculated automatically each year (typically between March 22nd and April 25th). Days before/after are inclusive.
+
+      collapsed: true
+      input:
+        easter_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly). Leave as default or customize to match your input_select options."
+          default: "Easter"
+          selector:
+            text:
+
+        easter_days_before:
+          name: "Days Before Easter"
+          description: "Number of days before Easter to start the season"
+          default: 7
+          selector: { number: { min: 0, max: 14, mode: box } }
+
+        easter_days_after:
+          name: "Days After Easter"
+          description: "Number of days after Easter to end the season"
+          default: 1
+          selector: { number: { min: 0, max: 7, mode: box } }
+
+    # ========================================
+    # 4TH OF JULY
+    # ========================================
+    july_4_section:
+      name: >
+        ## 🎆 Independence Day
+      description: >
+        ### Configure Independence Day season settings. US Independence Day is July 4th.
+
+      collapsed: true
+      input:
+        july_4_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly)."
+          default: "4th of July"
+          selector:
+            text:
+
+        july_4_start_month:
+          name: "Start Month"
+          description: "Month when Independence Day season begins"
+          default: 6
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        july_4_start_day:
+          name: "Start Day"
+          description: "Day when Independence Day season begins"
+          default: 20
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+        july_4_end_month:
+          name: "End Month"
+          description: "Month when Independence Day season ends"
+          default: 7
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        july_4_end_day:
+          name: "End Day"
+          description: "Day when Independence Day season ends"
+          default: 6
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+    # ========================================
+    # HALLOWEEN
+    # ========================================
+    halloween_section:
+      name: >
+        ## 🎃 Halloween
+      description: >
+        ### Configure Halloween season settings. Halloween is October 31st.
+
+      collapsed: true
+      input:
+        halloween_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly). Leave as default or customize to match your input_select options."
+          default: "Halloween"
+          selector:
+            text:
+
+        halloween_start_month:
+          name: "Start Month"
+          description: "Month when Halloween season begins"
+          default: 10
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        halloween_start_day:
+          name: "Start Day"
+          description: "Day when Halloween season begins"
+          default: 1
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+        halloween_end_month:
+          name: "End Month"
+          description: "Month when Halloween season ends"
+          default: 11
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        halloween_end_day:
+          name: "End Day"
+          description: "Day when Halloween season ends"
+          default: 1
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+    # ========================================
+    # THANKSGIVING
+    # ========================================
+    thanksgiving_section:
+      name: >
+        ## 🦃 Thanksgiving
+      description: >
+        ### Configure Thanksgiving season settings. Thanksgiving is calculated automatically each year (4th Thursday of November). Days before/after are inclusive.
+
+      collapsed: true
+      input:
+        thanksgiving_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly). Leave as default or customize to match your input_select options."
+          default: "Thanksgiving"
+          selector:
+            text:
+
+        thanksgiving_days_before:
+          name: "Days Before Thanksgiving"
+          description: "Number of days before Thanksgiving to start the season"
+          default: 7
+          selector: { number: { min: 0, max: 14, mode: box } }
+
+        thanksgiving_days_after:
+          name: "Days After Thanksgiving"
+          description: "Number of days after Thanksgiving to end the season"
+          default: 0
+          selector: { number: { min: 0, max: 7, mode: box } }
+
+    # ========================================
+    # CHRISTMAS
+    # ========================================
+    christmas_section:
+      name: >
+        ## 🎄 Christmas / ❄️ Winter Holiday
+      description: >
+        ### Configure Christmas or any other winter holiday season settings. Christmas is December 25th. This season is able to span across the year boundary (Nov/Dec - Jan).
+
+      collapsed: true
+      input:
+        christmas_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly)."
+          default: "Christmas"
+          selector:
+            text:
+
+        christmas_start_after_thanksgiving:
+          name: "Start After Thanksgiving"
+          description: "If enabled, Christmas season starts the day after Thanksgiving ends. Otherwise uses the specified start date below."
+          default: true
+          selector: { boolean: {} }
+
+        christmas_start_month:
+          name: "Start Month (if not using Thanksgiving)"
+          description: "Month when Christmas season begins (only used if 'Start After Thanksgiving' is disabled)"
+          default: 11
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        christmas_start_day:
+          name: "Start Day (if not using Thanksgiving)"
+          description: "Day when Christmas season begins (only used if 'Start After Thanksgiving' is disabled)"
+          default: 28
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+        christmas_end_month:
+          name: "End Month"
+          description: "Month when Christmas season ends. (This season is able to span across the year boundary if set. )"
+          default: 12
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        christmas_end_day:
+          name: "End Day"
+          description: "Day when Christmas season ends"
+          default: 27
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+    # ========================================
+    # NEW YEAR'S
+    # ========================================
+    new_year_section:
+      name: >
+        ## 🎊 New Years
+      description: >
+        ### Configure New Years season settings. This season is able to span across the year boundary (Dec - Jan).
+
+      collapsed: true
+      input:
+        new_year_name:
+          name: "Holiday Name"
+          description: "Name to use in input_select (must match exactly)."
+          default: "New Years"
+          selector:
+            text:
+
+        new_year_start_month:
+          name: "Start Month"
+          description: "Month when New Years season begins"
+          default: 12
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        new_year_start_day:
+          name: "Start Day"
+          description: "Day when New Years season begins"
+          default: 28
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+        new_year_end_month:
+          name: "End Month"
+          description: "Month when New Years season ends (in the new year)"
+          default: 1
+          selector: { number: { min: 1, max: 12, mode: box } }
+
+        new_year_end_day:
+          name: "End Day"
+          description: "Day when New Years season ends"
+          default: 3
+          selector: { number: { min: 1, max: 31, mode: box } }
+
+variables:
+  # Input select entity
+  target_entity: !input input_select_entity
+
+  # Get available options from input_select
+  available_options: "{{ state_attr(target_entity, 'options') | default([]) }}"
+
+  # User inputs - holiday names
+  valentines_name: !input valentines_name
+  st_patrick_name: !input st_patrick_name
+  easter_name: !input easter_name
+  july_4_name: !input july_4_name
+  halloween_name: !input halloween_name
+  thanksgiving_name: !input thanksgiving_name
+  christmas_name: !input christmas_name
+  new_year_name: !input new_year_name
+  no_holiday_name: !input no_holiday_name
+
+  # User inputs - date settings
+  valentines_start_m: !input valentines_start_month
+  valentines_start_d: !input valentines_start_day
+  valentines_end_m: !input valentines_end_month
+  valentines_end_d: !input valentines_end_day
+
+  st_patrick_start_m: !input st_patrick_start_month
+  st_patrick_start_d: !input st_patrick_start_day
+  st_patrick_end_m: !input st_patrick_end_month
+  st_patrick_end_d: !input st_patrick_end_day
+
+  easter_before: !input easter_days_before
+  easter_after: !input easter_days_after
+
+  july_4_start_m: !input july_4_start_month
+  july_4_start_d: !input july_4_start_day
+  july_4_end_m: !input july_4_end_month
+  july_4_end_d: !input july_4_end_day
+
+  halloween_start_m: !input halloween_start_month
+  halloween_start_d: !input halloween_start_day
+  halloween_end_m: !input halloween_end_month
+  halloween_end_d: !input halloween_end_day
+
+  thanksgiving_before: !input thanksgiving_days_before
+  thanksgiving_after: !input thanksgiving_days_after
+
+  christmas_after_thanksgiving: !input christmas_start_after_thanksgiving
+  christmas_start_m: !input christmas_start_month
+  christmas_start_d: !input christmas_start_day
+  christmas_end_m: !input christmas_end_month
+  christmas_end_d: !input christmas_end_day
+
+  new_year_start_m: !input new_year_start_month
+  new_year_start_d: !input new_year_start_day
+  new_year_end_m: !input new_year_end_month
+  new_year_end_d: !input new_year_end_day
+
+  # Current holiday calculation
+  current_holiday: >
+    {% set today = now().date() %}
+    {% set year = today.year %}
+    {% set month = today.month %}
+    {% set day = today.day %}
+    
+    {# Easter calculation #}
+    {% set a = year % 19 %}
+    {% set b = year // 100 %}
+    {% set c = year % 100 %}
+    {% set d = b // 4 %}
+    {% set e = b % 4 %}
+    {% set f = (b + 8) // 25 %}
+    {% set g = (b - f + 1) // 3 %}
+    {% set h = (19 * a + b - d - g + 15) % 30 %}
+    {% set i = c // 4 %}
+    {% set k = c % 4 %}
+    {% set l = (32 + 2 * e + 2 * i - h - k) % 7 %}
+    {% set m = (a + 11 * h + 22 * l) // 451 %}
+    {% set easter_month = (h + l - 7 * m + 114) // 31 %}
+    {% set easter_day = ((h + l - 7 * m + 114) % 31) + 1 %}
+    {% set easter_date = today.replace(month=easter_month, day=easter_day) %}
+    {% set easter_start = easter_date - timedelta(days=easter_before) %}
+    {% set easter_end = easter_date + timedelta(days=easter_after) %}
+    
+    {# Thanksgiving calculation (4th Thursday of November) #}
+    {% set nov_first = today.replace(month=11, day=1) %}
+    {% set first_thursday = nov_first + timedelta(days=(3 - nov_first.weekday() + 7) % 7) %}
+    {% set thanksgiving_date = first_thursday + timedelta(weeks=3) %}
+    {% set thanksgiving_start = thanksgiving_date - timedelta(days=thanksgiving_before) %}
+    {% set thanksgiving_end = thanksgiving_date + timedelta(days=thanksgiving_after) %}
+    
+    {# Christmas start date #}
+    {% if christmas_after_thanksgiving %}
+      {% set christmas_start_date = thanksgiving_end + timedelta(days=1) %}
+      {% set christmas_start_m_actual = christmas_start_date.month %}
+      {% set christmas_start_d_actual = christmas_start_date.day %}
+    {% else %}
+      {% set christmas_start_m_actual = christmas_start_m %}
+      {% set christmas_start_d_actual = christmas_start_d %}
+    {% endif %}
+    
+    {# New Year's dates (spans year boundary) #}
+    {% set new_year_start_date = today.replace(month=new_year_start_m, day=new_year_start_d) %}
+    {% set new_year_end_date = today.replace(month=new_year_end_m, day=new_year_end_d) %}
+    
+    {# Check each holiday in priority order #}
+    {% if month == valentines_start_m and day >= valentines_start_d and month == valentines_end_m and day <= valentines_end_d %}
+      {{ valentines_name }}
+    {% elif ((month == st_patrick_start_m and day >= st_patrick_start_d) and (month == st_patrick_end_m and day <= st_patrick_end_d)) %}
+      {{ st_patrick_name }}
+    {% elif today >= easter_start and today <= easter_end %}
+      {{ easter_name }}
+    {% elif ((month == july_4_start_m and day >= july_4_start_d) or (month == july_4_end_m and day <= july_4_end_d)) %}
+      {{ july_4_name }}
+    {% elif ((month == halloween_start_m and day >= halloween_start_d) or (month == halloween_end_m and day <= halloween_end_d)) %}
+      {{ halloween_name }}
+    {% elif today >= thanksgiving_start and today <= thanksgiving_end %}
+      {{ thanksgiving_name }}
+    {% elif (christmas_start_m_actual > christmas_end_m and ((month == christmas_start_m_actual and day >= christmas_start_d_actual) or (month == christmas_end_m and day <= christmas_end_d))) or (christmas_start_m_actual <= christmas_end_m and month >= christmas_start_m_actual and month <= christmas_end_m and (month > christmas_start_m_actual or day >= christmas_start_d_actual) and (month < christmas_end_m or day <= christmas_end_d)) %}
+      {{ christmas_name }}
+    {% elif (new_year_start_m > new_year_end_m and ((month == new_year_start_m and day >= new_year_start_d) or (month == new_year_end_m and day <= new_year_end_d))) or (new_year_start_m <= new_year_end_m and month == new_year_start_m and day >= new_year_start_d and month == new_year_end_m and day <= new_year_end_d) %}
+      {{ new_year_name }}
+    {% else %}
+      {{ no_holiday_name }}
+    {% endif %}
+
+trigger:
+  - platform: time
+    at: "00:00:00"
+  - platform: homeassistant
+    event: start
+
+condition: []
+
+action:
+  - service: input_select.select_option
+    target:
+      entity_id: "{{ target_entity }}"
+    data:
+      option: >
+        {% if current_holiday in available_options %}
+          {{ current_holiday }}
+        {% elif no_holiday_name in available_options %}
+          {{ no_holiday_name }}
+        {% else %}
+          {{ available_options[0] | default('No Holiday') }}
+        {% endif %}
+
+mode: single
