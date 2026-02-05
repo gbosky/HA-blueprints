@@ -1,7 +1,7 @@
 blueprint:
-  name: "💠 TESTING Smart Area Occupancy"
+  name: "💠 ALPHA Smart Area Occupancy"
   description: >
-    **Version: 1.0**
+    **Version: 0.1**
 
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
