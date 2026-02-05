@@ -1,7 +1,7 @@
 blueprint:
-  name: "💠 ALPHA Smart Area Occupancy"
+  name: "💠 TESTING Smart Area Occupancy"
   description: >
-    **Version: 0.1**
+    **Version: 1.0**
 
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
@@ -814,7 +814,7 @@ variables:
   use_cleared_hold: !input use_cleared_hold
   cleared_hold_entities: !input cleared_hold_entities
   cleared_hold_type: !input cleared_hold_type
-  cleared_hold_duration: !input cleared_hold_duration
+  #cleared_hold_duration: !input cleared_hold_duration
   cleared_hold_delay_on: !input cleared_hold_delay_on
   cleared_hold_delay_off: !input cleared_hold_delay_off
 
