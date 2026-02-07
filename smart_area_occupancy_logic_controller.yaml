@@ -1028,7 +1028,7 @@ variables:
 
   # --- DETECTED HOLD STATE ---
   detected_hold_is_on: >
-    {% if detected_hold_entities | length == 0 %}
+    {% if use_detected_hold != 'detected_hold_enabled' or detected_hold_entities | length == 0 %}
       false
     {% else %}
       {% set matching = expand(detected_hold_entities) | selectattr('state', 'eq', detected_hold_sensor_control_state) | list | length %}
@@ -1037,7 +1037,7 @@ variables:
     {% endif %}
 
   detected_hold_is_off: >
-    {% if detected_hold_entities | length == 0 %}
+    {% if use_detected_hold != 'detected_hold_enabled' or detected_hold_entities | length == 0 %}
       false
     {% else %}
       {% set opposite_state = 'off' if detected_hold_sensor_control_state == 'on' else 'on' %}
@@ -1057,7 +1057,7 @@ variables:
 
   # --- CLEARED HOLD STATE ---
   cleared_hold_is_on: >
-    {% if cleared_hold_entities | length == 0 %}
+    {% if use_cleared_hold != 'clearing_hold_enabled' or cleared_hold_entities | length == 0 %}
       false
     {% else %}
       {% set matching = expand(cleared_hold_entities) | selectattr('state', 'eq', cleared_hold_sensor_control_state) | list | length %}
@@ -1066,7 +1066,7 @@ variables:
     {% endif %}
 
   cleared_hold_is_off: >
-    {% if cleared_hold_entities | length == 0 %}
+    {% if use_cleared_hold != 'clearing_hold_enabled' or cleared_hold_entities | length == 0 %}
       false
     {% else %}
       {% set opposite_state = 'off' if cleared_hold_sensor_control_state == 'on' else 'on' %}
