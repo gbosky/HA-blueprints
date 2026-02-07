@@ -1835,10 +1835,10 @@ actions:
               # Must be a relevant trigger
               - condition: trigger
                 id:
-                  - base occupancy on
-                  - entering on
-                  - leaving off
-                  - detected hold on
+                  - "base occupancy on"
+                  - "entering on"
+                  - "leaving off"
+                  - "detected hold on"
               
               # Cleared hold must NOT be blocking
               - condition: template
@@ -1900,10 +1900,10 @@ actions:
               # Must be a relevant trigger
               - condition: trigger
                 id:
-                  - base occupancy off
-                  - entering off
-                  - leaving on
-                  - clear hold on
+                  - "base occupancy off"
+                  - "entering off"
+                  - "leaving on"
+                  - "clear hold on"
               
               # Detected hold must NOT be blocking
               - condition: template
