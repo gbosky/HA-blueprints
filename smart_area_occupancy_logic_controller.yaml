@@ -1,7 +1,7 @@
 blueprint:
   name: "💠 BETA Smart Area Occupancy"
   description: >
-    **Version: 0.8**
+    **Version: 0.9**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -1722,9 +1722,18 @@ actions:
                   - "leaving off"
                   - "detected hold on"
               
-              # Cleared hold must NOT be blocking
-              - condition: template
-                value_template: "{{ not cleared_hold_is_on }}"
+              # Cleared hold must NOT be blocking (skip check if disabled/empty)
+              - condition: or
+                conditions:
+                  # Cleared hold is disabled
+                  - condition: template
+                    value_template: "{{ use_cleared_hold != 'clearing_hold_enabled' }}"
+                  # Cleared hold entities are empty
+                  - condition: template
+                    value_template: "{{ cleared_hold_entities | length == 0 }}"
+                  # Cleared hold is not active
+                  - condition: template
+                    value_template: "{{ not cleared_hold_is_on }}"
               
               # Check if should turn ON
               - condition: or
@@ -1777,36 +1786,19 @@ actions:
           # Falling edge conditions met OR cleared hold can trigger
           # ============================================================================
 
-          - alias: Smart Occupancy - Turn OFF
+          # Detected hold must NOT be blocking (explicit check for disabled/empty)
+          - condition: or
+            alias: "Detected hold is not blocking"
             conditions:
-              # Must be a relevant trigger
-              - condition: trigger
-                id:
-                  - "base occupancy off"
-                  - "entering off"
-                  - "leaving on"
-                  - "clear hold on"
-              
-              # Detected hold must NOT be blocking
+              # Detected hold is disabled
+              - condition: template
+                value_template: "{{ use_detected_hold != 'detected_hold_enabled' }}"
+              # Detected hold entities are empty
+              - condition: template
+                value_template: "{{ detected_hold_entities | length == 0 }}"
+              # Detected hold is not active
               - condition: template
                 value_template: "{{ not detected_hold_is_on }}"
-              
-              # Check if should turn OFF
-              - condition: or
-                conditions:
-                  # Falling edge wants to turn OFF
-                  - condition: template
-                    value_template: "{{ smart_occ_falling_edge_should_turn_off }}"
-                  
-                  # OR Cleared hold can trigger (if enabled)
-                  - condition: and
-                    conditions:
-                      - condition: trigger
-                        id: clear hold on
-                      - condition: template
-                        value_template: "{{ smart_occ_cleared_hold_falling_edge == 'trigger_and_hold' }}"
-                      - condition: template
-                        value_template: "{{ cleared_hold_is_on }}"
 
             sequence:
               - if:
