@@ -1,7 +1,7 @@
 blueprint:
-  name: "💠 TESTING Smart Area Occupancy"
+  name: "💠 BETA Smart Area Occupancy"
   description: >
-    **Version: 1.0**
+    **Version: 0.9**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -292,6 +292,20 @@ blueprint:
                 - label: "Leaving Conditions - OFF / Opposite Control State"
                   value: "leaving"
 
+        smart_occ_rising_edge_type_on:
+          name: Smart Occupancy Rising Edge Detection Type - On Trigger
+          description: >
+            For the smart occupancy rising edge ON trigger, choose between Any or All selected conditions 
+            being in their "on" state to trigger the smart occupancy to turn ON (detected state).
+          default: "any"
+          selector:
+            select:
+              options:
+                - label: "Any"
+                  value: "any"
+                - label: "All"
+                  value: "all"
+
         smart_occ_detected_hold_rising_edge:
           name: Smart Occupancy Detected Hold Rising Edge Trigger
           description: >
@@ -323,10 +337,24 @@ blueprint:
                 - label: "Leaving Conditions - ON / Match Control State"
                   value: "leaving"
 
-        smart_occ_cleared_hold_rising_edge:
-          name: Smart Occupancy Cleared Hold Rising Edge Trigger
+        smart_occ_falling_edge_type_off:
+          name: Smart Occupancy Falling Edge Detection Type - Off Trigger
           description: >
-            Choose weather the cleared hold will trigger a change of state to cleared or only hold when the cleared state from another condtion and prevent detected if enabled.
+            For the smart occupancy falling edge OFF trigger, choose between Any or All selected conditions 
+            being in their "off" state to allow the smart occupancy to turn ON (detected state).
+          default: "all"
+          selector:
+            select:
+              options:
+                - label: "Any"
+                  value: "any"
+                - label: "All"
+                  value: "all"
+
+        smart_occ_cleared_hold_falling_edge:
+          name: Smart Occupancy Cleared Hold Falling Edge Trigger
+          description: >
+            Choose whether the cleared hold will trigger a change of state to cleared or only hold when the cleared state from another condition and prevent detected if enabled.
           default: "trigger_and_hold"
           selector:
             select:
@@ -878,9 +906,9 @@ blueprint:
               unit_of_measurement: "°"
 
 variables:
-  base_occ: !input base_occ #input_boolean.back_bedroom_smart_occupancy
-  smart_occ_helper: !input smart_occ_helper #back_bedroom_smart_occupancy
-  smart_occ_sensor: !input smart_occ_sensor #binary_sensor.smart_occ_back_bedroom
+  base_occ: !input base_occ
+  smart_occ_helper: !input smart_occ_helper
+  smart_occ_sensor: !input smart_occ_sensor
   smart_occ_room_id: >
     {{ smart_occ_sensor.split('.')[1].split('smart_occ_')[1] if 'smart_occ_' in smart_occ_sensor else '' }}
   light_target: !input light_target
@@ -901,28 +929,14 @@ variables:
 
   scene_entities: >
     {% if light_target.entity_id is defined %}
-      {% set scenes = expand(light_target.entity_id) | selectattr('domain', 'eq', 'scene') | map(attribute='entity_id') | list %}
-      {% if scenes_scripts_helper | length > 0 and is_state(scenes_scripts_helper, 'off') %}
-        {{ scenes }}
-      {% elif scenes_scripts_helper | length == 0 %}
-        {{ scenes }}
-      {% else %}
-        []
-      {% endif %}
+      {{ expand(light_target.entity_id) | selectattr('domain', 'eq', 'scene') | map(attribute='entity_id') | list }}
     {% else %}
       []
     {% endif %}
 
   script_entities: >
     {% if light_target.entity_id is defined %}
-      {% set scripts = expand(light_target.entity_id) | selectattr('domain', 'eq', 'script') | map(attribute='entity_id') | list %}
-      {% if scenes_scripts_helper | length > 0 and is_state(scenes_scripts_helper, 'off') %}
-        {{ scripts }}
-      {% elif scenes_scripts_helper | length == 0 %}
-        {{ scripts }}
-      {% else %}
-        []
-      {% endif %}
+      {{ expand(light_target.entity_id) | selectattr('domain', 'eq', 'script') | map(attribute='entity_id') | list }}
     {% else %}
       []
     {% endif %}
@@ -938,60 +952,213 @@ variables:
 
   # --- Smart Occupancy Logic Controls ---
   smart_occ_rising_edge: !input smart_occ_rising_edge
-  #smart_occ_rising_delay: !input smart_occ_rising_delay
+  smart_occ_rising_edge_type_on: !input smart_occ_rising_edge_type_on
+  smart_occ_detected_hold_rising_edge: !input smart_occ_detected_hold_rising_edge
+
   smart_occ_falling_edge: !input smart_occ_falling_edge
-  #smart_occ_falling_delay: !input smart_occ_falling_delay
+  smart_occ_falling_edge_type_off: !input smart_occ_falling_edge_type_off
+  smart_occ_cleared_hold_falling_edge: !input smart_occ_cleared_hold_falling_edge
 
   # --- Occupancy Entering Conditions ---
   use_entering: !input use_entering
   entering_sensors: !input entering_sensors
   entering_sensor_control_state: !input entering_sensor_control_state
-  #entering_type: !input entering_type
   entering_type_on: !input entering_type_on
   entering_type_off: !input entering_type_off
   entering_delay_on: !input entering_delay_on
   entering_delay_off: !input entering_delay_off
-  #entering_duration_on_limit: !input entering_duration_on_limit
+
+  # --- ENTERING CONDITION STATE ---
+  entering_is_on: >
+    {% if entering_sensors | length == 0 %}
+      false
+    {% else %}
+      {% set matching = expand(entering_sensors) | selectattr('state', 'eq', entering_sensor_control_state) | list | length %}
+      {% set total = entering_sensors | length %}
+      {{ (entering_type_on == 'any' and matching > 0) or (entering_type_on == 'all' and matching == total) }}
+    {% endif %}
+
+  entering_is_off: >
+    {% if entering_sensors | length == 0 %}
+      false
+    {% else %}
+      {% set opposite_state = 'off' if entering_sensor_control_state == 'on' else 'on' %}
+      {% set matching = expand(entering_sensors) | selectattr('state', 'eq', opposite_state) | list | length %}
+      {% set total = entering_sensors | length %}
+      {{ (entering_type_off == 'any' and matching > 0) or (entering_type_off == 'all' and matching == total) }}
+    {% endif %}
 
   # --- Occupancy Leaving Conditions ---
   use_leaving: !input use_leaving
   leaving_sensors: !input leaving_sensors
   leaving_sensor_control_state: !input leaving_sensor_control_state
-  #leaving_type: !input leaving_type
   leaving_type_on: !input leaving_type_on
   leaving_type_off: !input leaving_type_off
   leaving_delay_on: !input leaving_delay_on
   leaving_delay_off: !input leaving_delay_off
-  #leaving_duration_on_limit: !input leaving_duration_on_limit
+
+  # --- LEAVING CONDITION STATE ---
+  leaving_is_on: >
+    {% if leaving_sensors | length == 0 %}
+      false
+    {% else %}
+      {% set matching = expand(leaving_sensors) | selectattr('state', 'eq', leaving_sensor_control_state) | list | length %}
+      {% set total = leaving_sensors | length %}
+      {{ (leaving_type_on == 'any' and matching > 0) or (leaving_type_on == 'all' and matching == total) }}
+    {% endif %}
+
+  leaving_is_off: >
+    {% if leaving_sensors | length == 0 %}
+      false
+    {% else %}
+      {% set opposite_state = 'off' if leaving_sensor_control_state == 'on' else 'on' %}
+      {% set matching = expand(leaving_sensors) | selectattr('state', 'eq', opposite_state) | list | length %}
+      {% set total = leaving_sensors | length %}
+      {{ (leaving_type_off == 'any' and matching > 0) or (leaving_type_off == 'all' and matching == total) }}
+    {% endif %}
 
   # -- Detected Occupancy Hold ---
   use_detected_hold: !input use_detected_hold
   detected_hold_entities: !input detected_hold_entities
   detected_hold_sensor_control_state: !input detected_hold_sensor_control_state
-  #detected_hold_type: !input detected_hold_type
   detected_hold_type_on: !input detected_hold_type_on
   detected_hold_type_off: !input detected_hold_type_off
   detected_hold_delay_on: !input detected_hold_delay_on
   detected_hold_delay_off: !input detected_hold_delay_off
-  #detected_hold_duration_on_limit: !input detected_hold_duration_on_limit
 
-  # Convert inputs to total seconds (handling potential nulls/defaults)
-  #detected_hold_delay_on_sec: "{{ (detected_hold_delay_on | default(0)) | int }}"
-  #detected_hold_duration_limit_sec: "{{ (detected_hold_duration_on_limit | default(0)) | int }}"
+  # --- DETECTED HOLD STATE ---
+  detected_hold_is_on: >
+    {% if detected_hold_entities | length == 0 %}
+      false
+    {% else %}
+      {% set matching = expand(detected_hold_entities) | selectattr('state', 'eq', detected_hold_sensor_control_state) | list | length %}
+      {% set total = detected_hold_entities | length %}
+      {{ (detected_hold_type_on == 'any' and matching > 0) or (detected_hold_type_on == 'all' and matching == total) }}
+    {% endif %}
 
-  # The "True Hold Time"
-  #total_detected_hold_time_sec: "{{ detected_hold_duration_limit_sec + duration_limit_sec }}"
+  detected_hold_is_off: >
+    {% if detected_hold_entities | length == 0 %}
+      false
+    {% else %}
+      {% set opposite_state = 'off' if detected_hold_sensor_control_state == 'on' else 'on' %}
+      {% set matching = expand(detected_hold_entities) | selectattr('state', 'eq', opposite_state) | list | length %}
+      {% set total = detected_hold_entities | length %}
+      {{ (detected_hold_type_off == 'any' and matching > 0) or (detected_hold_type_off == 'all' and matching == total) }}
+    {% endif %}
 
   # -- Clearing Occupancy Hold ---
   use_cleared_hold: !input use_cleared_hold
   cleared_hold_entities: !input cleared_hold_entities
   cleared_hold_sensor_control_state: !input cleared_hold_sensor_control_state
-  #cleared_hold_type: !input cleared_hold_type
   cleared_hold_type_on: !input cleared_hold_type_on
   cleared_hold_type_off: !input cleared_hold_type_off
   cleared_hold_delay_on: !input cleared_hold_delay_on
   cleared_hold_delay_off: !input cleared_hold_delay_off
-  #cleared_hold_duration_on_limit: !input cleared_hold_duration_on_limit
+
+  # --- CLEARED HOLD STATE ---
+  cleared_hold_is_on: >
+    {% if cleared_hold_entities | length == 0 %}
+      false
+    {% else %}
+      {% set matching = expand(cleared_hold_entities) | selectattr('state', 'eq', cleared_hold_sensor_control_state) | list | length %}
+      {% set total = cleared_hold_entities | length %}
+      {{ (cleared_hold_type_on == 'any' and matching > 0) or (cleared_hold_type_on == 'all' and matching == total) }}
+    {% endif %}
+
+  cleared_hold_is_off: >
+    {% if cleared_hold_entities | length == 0 %}
+      false
+    {% else %}
+      {% set opposite_state = 'off' if cleared_hold_sensor_control_state == 'on' else 'on' %}
+      {% set matching = expand(cleared_hold_entities) | selectattr('state', 'eq', opposite_state) | list | length %}
+      {% set total = cleared_hold_entities | length %}
+      {{ (cleared_hold_type_off == 'any' and matching > 0) or (cleared_hold_type_off == 'all' and matching == total) }}
+    {% endif %}
+
+  # --- SMART OCCUPANCY RISING EDGE STATE ---
+  smart_occ_rising_edge_should_turn_on: >
+    {% if smart_occ_rising_edge | length == 0 %}
+      false
+    {% else %}
+      {% set active_selections = namespace(count=0) %}
+      {% set conditions_met = namespace(count=0) %}
+
+      {# 1. Base Occupancy (Must be ON to Turn ON) #}
+      {% if 'base_occ' in smart_occ_rising_edge %}
+        {% set active_selections.count = active_selections.count + 1 %}
+        {% if is_state(base_occ, 'on') %}
+          {% set conditions_met.count = conditions_met.count + 1 %}
+        {% endif %}
+      {% endif %}
+
+      {# 2. Entering Logic (Someone moving in helps turn it ON) #}
+      {% if 'entering' in smart_occ_rising_edge and use_entering == 'use_entering_enabled' and entering_sensors | length > 0 %}
+        {% set active_selections.count = active_selections.count + 1 %}
+        {% if entering_is_on %}
+          {% set conditions_met.count = conditions_met.count + 1 %}
+        {% endif %}
+      {% endif %}
+
+      {# 3. Leaving Logic (Inverse: No one leaving helps turn it ON / stay ON) #}
+      {% if 'leaving' in smart_occ_rising_edge and use_leaving == 'use_leaving_enabled' and leaving_sensors | length > 0 %}
+        {% set active_selections.count = active_selections.count + 1 %}
+        {% if leaving_is_off %}
+          {% set conditions_met.count = conditions_met.count + 1 %}
+        {% endif %}
+      {% endif %}
+
+      {# Final Evaluation Logic #}
+      {% if active_selections.count == 0 %}
+        {# If everything selected is actually disabled/empty, don't turn on #}
+        false
+      {% else %}
+        {% set is_any = (smart_occ_rising_edge_type_on == 'any' and conditions_met.count > 0) %}
+        {% set is_all = (smart_occ_rising_edge_type_on == 'all' and conditions_met.count == active_selections.count) %}
+        {{ is_any or is_all }}
+      {% endif %}
+    {% endif %}
+
+  # --- SMART OCCUPANCY FALLING EDGE STATE ---
+  smart_occ_falling_edge_should_turn_off: >
+    {% if smart_occ_falling_edge | length == 0 %}
+      false
+    {% else %}
+      {% set active_selections = namespace(count=0) %}
+      {% set conditions_met = namespace(count=0) %}
+
+      {# 1. Base Occupancy #}
+      {% if 'base_occ' in smart_occ_falling_edge %}
+        {% set active_selections.count = active_selections.count + 1 %}
+        {% if is_state(base_occ, 'off') %}
+          {% set conditions_met.count = conditions_met.count + 1 %}
+        {% endif %}
+      {% endif %}
+
+      {# 2. Entering Logic #}
+      {% if 'entering' in smart_occ_falling_edge and use_entering == 'use_entering_enabled' and entering_sensors | length > 0 %}
+        {% set active_selections.count = active_selections.count + 1 %}
+        {% if entering_is_off %}
+          {% set conditions_met.count = conditions_met.count + 1 %}
+        {% endif %}
+      {% endif %}
+
+      {# 3. Leaving Logic #}
+      {% if 'leaving' in smart_occ_falling_edge and use_leaving == 'use_leaving_enabled' and leaving_sensors | length > 0 %}
+        {% set active_selections.count = active_selections.count + 1 %}
+        {% if leaving_is_on %}
+          {% set conditions_met.count = conditions_met.count + 1 %}
+        {% endif %}
+      {% endif %}
+
+      {# Final Evaluation #}
+      {% if active_selections.count == 0 %}
+        false
+      {% else %}
+        {% set is_any = (smart_occ_falling_edge_type_off == 'any' and conditions_met.count > 0) %}
+        {% set is_all = (smart_occ_falling_edge_type_off == 'all' and conditions_met.count == active_selections.count) %}
+        {{ is_any or is_all }}
+      {% endif %}
+    {% endif %}
 
   # -- Light Control - Illuminance ---
   use_lux: !input use_lux
@@ -1582,6 +1749,10 @@ actions:
     then:
       - alias: Smart Occupancy Actions
         choose:
+          # ============================================================================
+          # AUTOMATION CONTROL ACTIONS
+          # ============================================================================
+          
           - alias: Automation Re-Enabled
             conditions:
               - condition: template
@@ -1592,26 +1763,20 @@ actions:
             sequence:
               - if:
                   - condition: template
-                    value_template: "{{ (smart_occ_sensor | string) != 'none' and (smart_occ_sensor | string) != '' }}"
+                    value_template: "{{ smart_occ_sensor != none }}"
                 then:
-                  # 1. Sync the Smart Occupancy Sensor (Event)
-                  - if:
-                      - condition: template
-                        value_template: "{{ smart_occ_sensor != none }}"
-                    then:
-                      - alias: Fire Update Event - Off
-                        event: smart_occupancy_update
-                        event_data:
-                          target_sensor: "{{ smart_occ_sensor }}"
-                          state: "{{ states(base_occ) }}"
-                  # 2. Sync the Smart Occupancy Helper (Boolean)
-                  - if:
-                      - condition: template
-                        value_template: "{{ smart_occ_helper != none }}"
-                    then:
-                      - service: "input_boolean.turn_{{ states(base_occ) }}"
-                        target:
-                          entity_id: !input smart_occ_helper
+                  - alias: Fire Update Event - Sync to Base
+                    event: smart_occupancy_update
+                    event_data:
+                      target_sensor: "{{ smart_occ_sensor }}"
+                      state: "{{ states(base_occ) }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ smart_occ_helper != none }}"
+                then:
+                  - service: "input_boolean.turn_{{ states(base_occ) }}"
+                    target:
+                      entity_id: !input smart_occ_helper
 
           - alias: Automation Disabled
             conditions:
@@ -1621,17 +1786,15 @@ actions:
                 id:
                   - automation disabled
             sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_sensor != none }}"
                 then:
-                  - alias: Fire Update Event - On
+                  - alias: Fire Update Event - Fallback
                     event: smart_occupancy_update
                     event_data:
                       target_sensor: "{{ smart_occ_sensor }}"
                       state: "{{ fallback_state_sensor }}"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -1641,124 +1804,42 @@ actions:
                       entity_id: "{{ smart_occ_helper }}"
 
           # ============================================================================
-          # RISING EDGE ACTIONS (Turn ON / Detected)
+          # SMART OCCUPANCY TURN ON
+          # Rising edge conditions met OR detected hold can trigger
           # ============================================================================
 
-          - alias: Base Occupancy - Detected
+          - alias: Smart Occupancy - Turn ON
             conditions:
+              # Must be a relevant trigger
               - condition: trigger
                 id:
                   - base occupancy on
-              # RISING EDGE FILTER: Only proceed if 'base_occ' is in the rising edge list
-              - condition: template
-                value_template: "{{ 'base_occ' in smart_occ_rising_edge }}"
-              # Cleared hold check (prevents turning on if cleared hold is active)
-              - condition: template
-                value_template: >
-                  {{ cleared_hold_entities | length == 0
-                     or (cleared_hold_entities | length > 0 
-                         and expand(cleared_hold_entities) | selectattr('state', 'eq', 'off') | list | length == cleared_hold_entities | length) }}
-            sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - On
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "on"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: input_boolean.turn_on
-                    target:
-                      entity_id: "{{ smart_occ_helper }}"
-          ###
-          ### Also look at adding 3rd. option if these are not provide have another varible that can help with the light logic state of a variable to pass when that logic goes
-          ###
-
-          - alias: Entering Condition - On
-            conditions:
-              - condition: trigger
-                id:
                   - entering on
-              # RISING EDGE FILTER: Only proceed if 'entering' is in the rising edge list
-              - condition: template
-                value_template: "{{ 'entering' in smart_occ_rising_edge }}"
-              # Cleared hold check
-              - condition: template
-                value_template: >
-                  {{ cleared_hold_entities | length == 0
-                     or (cleared_hold_entities | length > 0 
-                         and expand(cleared_hold_entities) | selectattr('state', 'eq', 'off') | list | length == cleared_hold_entities | length) }}
-            sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - On
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "on"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: input_boolean.turn_on
-                    target:
-                      entity_id: "{{ smart_occ_helper }}"
-
-          - alias: Leaving Condition - Off
-            conditions:
-              - condition: trigger
-                id:
                   - leaving off
-              # RISING EDGE FILTER: Only proceed if 'leaving' is in the rising edge list
-              - condition: template
-                value_template: "{{ 'leaving' in smart_occ_rising_edge }}"
-              # Cleared hold check
-              - condition: template
-                value_template: >
-                  {{ cleared_hold_entities | length == 0
-                     or (cleared_hold_entities | length > 0 
-                         and expand(cleared_hold_entities) | selectattr('state', 'eq', 'off') | list | length == cleared_hold_entities | length) }}
-            sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - On
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "on"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: input_boolean.turn_on
-                    target:
-                      entity_id: "{{ smart_occ_helper }}"
-
-          - alias: Detected Hold - On
-            conditions:
-              - condition: trigger
-                id:
                   - detected hold on
-              # RISING EDGE FILTER: Only proceed if 'detected_hold' is in the rising edge list
+              
+              # Cleared hold must NOT be blocking
               - condition: template
-                value_template: "{{ 'rising_edge' in smart_detected_hold_rising_edge }}"
+                value_template: "{{ cleared_hold_is_off }}"
+              
+              # Check if should turn ON
+              - condition: or
+                conditions:
+                  # Rising edge wants to turn ON
+                  - condition: template
+                    value_template: "{{ smart_occ_rising_edge_should_turn_on }}"
+                  
+                  # OR Detected hold can trigger (if enabled)
+                  - condition: and
+                    conditions:
+                      - condition: trigger
+                        id: detected hold on
+                      - condition: template
+                        value_template: "{{ smart_occ_detected_hold_rising_edge == 'rising_edge' }}"
+                      - condition: template
+                        value_template: "{{ detected_hold_is_on }}"
+
             sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_sensor != none }}"
@@ -1768,7 +1849,25 @@ actions:
                     event_data:
                       target_sensor: "{{ smart_occ_sensor }}"
                       state: "on"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
+                      debug:
+                        rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                        falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                        entering_is_on: "{{ entering_is_on }}"
+                        entering_is_off: "{{ entering_is_off }}"
+                        leaving_is_on: "{{ leaving_is_on }}"
+                        leaving_is_off: "{{ leaving_is_off }}"
+                        detected_hold_is_on: "{{ detected_hold_is_on }}"
+                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      # Debug attributes
+                      rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                      falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                      base_occ_state: "{{ states(base_occ) }}"
+                      entering_is_on: "{{ entering_is_on }}"
+                      entering_is_off: "{{ entering_is_off }}"
+                      leaving_is_on: "{{ leaving_is_on }}"
+                      leaving_is_off: "{{ leaving_is_off }}"
+                      detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      cleared_hold_is_on: "{{ cleared_hold_is_on }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -1778,200 +1877,42 @@ actions:
                       entity_id: "{{ smart_occ_helper }}"
 
           # ============================================================================
-          # FALLING EDGE ACTIONS (Turn OFF / Cleared)
+          # SMART OCCUPANCY TURN OFF
+          # Falling edge conditions met OR cleared hold can trigger
           # ============================================================================
 
-          - alias: Base Occupancy - Clear
+          - alias: Smart Occupancy - Turn OFF
             conditions:
+              # Must be a relevant trigger
               - condition: trigger
                 id:
                   - base occupancy off
-              # FALLING EDGE FILTER: Only proceed if 'base_occ' is in the falling edge list
-              - condition: template
-                value_template: "{{ 'base_occ' in smart_occ_falling_edge }}"
-
-              ### And condtions here that if entering ON and leaving off are in smart_occ_rising_edge and active then skip this condition
-
-              # Detected hold check (prevents turning off if detected hold is active)
-              - condition: template
-                value_template: >
-                  {{ detected_hold_entities | length == 0
-                     or (detected_hold_entities | length > 0 
-                         and expand(detected_hold_entities) | selectattr('state', 'eq', 'off') | list | length == detected_hold_entities | length) }}
-            sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - Off
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "off"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: input_boolean.turn_off
-                    target:
-                      entity_id: "{{ smart_occ_helper }}"
-
-          ### Need to add Entering Condtion - OFF with the same condtions of if leaving OFF and base occ are in smart occ_rising and active then skip this condtion
-          ###
-          ### Review the existing Entering Condition - OFF and see if it should be location here in the new "Rising Edge" actions/triggers
-          ###
-          ### Also look at
-          ###
-
-          - alias: Leaving Condition - On
-            conditions:
-              - condition: trigger
-                id:
-                  - leaving on
-              # FALLING EDGE FILTER: Only proceed if 'leaving' is in the falling edge list
-              - condition: template
-                value_template: "{{ 'leaving' in smart_occ_falling_edge }}"
-
-              ### And condtions here that if entering ON and base_occ are in smart_occ_rising_edge and active then skip this condition
-
-              # Detected hold check
-              - condition: template
-                value_template: >
-                  {{ detected_hold_entities | length == 0
-                     or (detected_hold_entities | length > 0 
-                         and expand(detected_hold_entities) | selectattr('state', 'eq', 'off') | list | length == detected_hold_entities | length) }}
-            sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - Off
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "off"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: input_boolean.turn_off
-                    target:
-                      entity_id: "{{ smart_occ_helper }}"
-
-          - alias: Cleared Hold - On
-            conditions:
-              - condition: trigger
-                id:
-                  - clear hold on
-              # FALLING EDGE FILTER: Only proceed if 'cleared_hold' is in the falling edge list
-              - condition: template
-                value_template: "{{ 'cleared_hold' in smart_occ_falling_edge }}"
-            sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - Off
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "off"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: input_boolean.turn_off
-                    target:
-                      entity_id: "{{ smart_occ_helper }}"
-
-          # ============================================================================
-          # HOLD RELEASE ACTIONS (Return to Base Occupancy)
-          # ============================================================================
-
-          - alias: Detected Hold - Off
-            conditions:
-              - condition: trigger
-                id:
-                  - detected hold off
-              # NO EDGE FILTER - Hold releases always sync to base_occ
-              # FALLING EDGE FILTER: Only proceed if 'detected_hold' is in the falling edge list
-              - condition: template
-                value_template: "{{ 'detected_hold' in smart_occ_falling_edge }}"
-            sequence:
-              # 1. Sync the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - Sync to Base
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "{{ states(base_occ) }}"
-              # 2. Sync the Smart Occupancy Helper (Boolean)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: "input_boolean.turn_{{ states(base_occ) }}"
-                    target:
-                      entity_id: !input smart_occ_helper
-
-          - alias: Cleared Hold - Off
-            conditions:
-              - condition: trigger
-                id:
-                  - clear hold off
-              # NO EDGE FILTER - Hold releases always sync to base_occ
-              # RISING EDGE FILTER: Only proceed if 'cleared_hold' is in the rising edge list
-              - condition: template
-                value_template: "{{ 'cleared_hold' in smart_occ_rising_edge }}"
-            sequence:
-              # 1. Sync the Smart Occupancy Sensor (Event)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_sensor != none }}"
-                then:
-                  - alias: Fire Update Event - Sync to Base
-                    event: smart_occupancy_update
-                    event_data:
-                      target_sensor: "{{ smart_occ_sensor }}"
-                      state: "{{ states(base_occ) }}"
-              # 2. Sync the Smart Occupancy Helper (Boolean)
-              - if:
-                  - condition: template
-                    value_template: "{{ smart_occ_helper != none }}"
-                then:
-                  - service: "input_boolean.turn_{{ states(base_occ) }}"
-                    target:
-                      entity_id: !input smart_occ_helper
-
-          # ============================================================================
-          # OFF ACTIONS THAT NEED EDGE FILTERS
-          # ============================================================================
-
-          - alias: Entering Condition - Off
-            conditions:
-              - condition: trigger
-                id:
                   - entering off
-              # FALLING EDGE FILTER: Only proceed if 'entering' is in the falling edge list
+                  - leaving on
+                  - clear hold on
+              
+              # Detected hold must NOT be blocking
               - condition: template
-                value_template: "{{ 'entering' in smart_occ_falling_edge }}"
-              # Detected hold check
-              - condition: template
-                value_template: >
-                  {{ detected_hold_entities | length == 0
-                     or (detected_hold_entities | length > 0 
-                         and expand(detected_hold_entities) | selectattr('state', 'eq', 'off') | list | length == detected_hold_entities | length) }}
+                value_template: "{{ detected_hold_is_off }}"
+              
+              # Check if should turn OFF
+              - condition: or
+                conditions:
+                  # Falling edge wants to turn OFF
+                  - condition: template
+                    value_template: "{{ smart_occ_falling_edge_should_turn_off }}"
+                  
+                  # OR Cleared hold can trigger (if enabled)
+                  - condition: and
+                    conditions:
+                      - condition: trigger
+                        id: clear hold on
+                      - condition: template
+                        value_template: "{{ smart_occ_cleared_hold_falling_edge == 'trigger_and_hold' }}"
+                      - condition: template
+                        value_template: "{{ cleared_hold_is_on }}"
+
             sequence:
-              # 1. Handle the Smart Occupancy Sensor (Event)
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_sensor != none }}"
@@ -1981,7 +1922,25 @@ actions:
                     event_data:
                       target_sensor: "{{ smart_occ_sensor }}"
                       state: "off"
-              # 2. Handle the Smart Occupancy Helper (Service Call)
+                      debug:
+                        rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                        falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                        entering_is_on: "{{ entering_is_on }}"
+                        entering_is_off: "{{ entering_is_off }}"
+                        leaving_is_on: "{{ leaving_is_on }}"
+                        leaving_is_off: "{{ leaving_is_off }}"
+                        detected_hold_is_on: "{{ detected_hold_is_on }}"
+                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      # Debug attributes
+                      rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                      falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                      base_occ_state: "{{ states(base_occ) }}"
+                      entering_is_on: "{{ entering_is_on }}"
+                      entering_is_off: "{{ entering_is_off }}"
+                      leaving_is_on: "{{ leaving_is_on }}"
+                      leaving_is_off: "{{ leaving_is_off }}"
+                      detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      cleared_hold_is_on: "{{ cleared_hold_is_on }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -1990,10 +1949,96 @@ actions:
                     target:
                       entity_id: "{{ smart_occ_helper }}"
 
-  # ============================================================================
-  # LIGHT CONTROL SECTION (Remains largely the same, just add edge filters to trigger conditions)
-  # ============================================================================
+          # ============================================================================
+          # HOLD RELEASE ACTIONS
+          # When holds release, re-evaluate based on current state
+          # ============================================================================
 
+          - alias: Detected Hold Released - Re-evaluate
+            conditions:
+              - condition: trigger
+                id: detected hold off
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ smart_occ_sensor != none }}"
+                then:
+                  - alias: Fire Update Event - Re-evaluate
+                    event: smart_occupancy_update
+                    event_data:
+                      target_sensor: "{{ smart_occ_sensor }}"
+                      state: >
+                        {% if cleared_hold_is_on %}
+                          off
+                        {% elif smart_occ_rising_edge_should_turn_on %}
+                          on
+                        {% elif smart_occ_falling_edge_should_turn_off %}
+                          off
+                        {% else %}
+                          {{ states(base_occ) }}
+                        {% endif %}
+              - if:
+                  - condition: template
+                    value_template: "{{ smart_occ_helper != none }}"
+                then:
+                  - service: >
+                      {% if cleared_hold_is_on %}
+                        input_boolean.turn_off
+                      {% elif smart_occ_rising_edge_should_turn_on %}
+                        input_boolean.turn_on
+                      {% elif smart_occ_falling_edge_should_turn_off %}
+                        input_boolean.turn_off
+                      {% else %}
+                        input_boolean.turn_{{ states(base_occ) }}
+                      {% endif %}
+                    target:
+                      entity_id: "{{ smart_occ_helper }}"
+
+          - alias: Cleared Hold Released - Re-evaluate
+            conditions:
+              - condition: trigger
+                id: clear hold off
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ smart_occ_sensor != none }}"
+                then:
+                  - alias: Fire Update Event - Re-evaluate
+                    event: smart_occupancy_update
+                    event_data:
+                      target_sensor: "{{ smart_occ_sensor }}"
+                      state: >
+                        {% if detected_hold_is_on %}
+                          on
+                        {% elif smart_occ_rising_edge_should_turn_on %}
+                          on
+                        {% elif smart_occ_falling_edge_should_turn_off %}
+                          off
+                        {% else %}
+                          {{ states(base_occ) }}
+                        {% endif %}
+              - if:
+                  - condition: template
+                    value_template: "{{ smart_occ_helper != none }}"
+                then:
+                  - service: >
+                      {% if detected_hold_is_on %}
+                        input_boolean.turn_on
+                      {% elif smart_occ_rising_edge_should_turn_on %}
+                        input_boolean.turn_on
+                      {% elif smart_occ_falling_edge_should_turn_off %}
+                        input_boolean.turn_off
+                      {% else %}
+                        input_boolean.turn_{{ states(base_occ) }}
+                      {% endif %}
+                    target:
+                      entity_id: "{{ smart_occ_helper }}"
+
+  # ============================================================================
+  # LIGHT CONTROL SECTION
+  # Lights simply follow the smart_occ_sensor/smart_occ_helper state
+  # ============================================================================
+  
   - alias: If Light Control is Enabled
     if:
       - condition: template
@@ -2003,8 +2048,20 @@ actions:
              or (light_skip_entity | length > 0 
               and not is_state(light_skip_entity, light_skip_state)) }}
     then:
-      - alias: "Light On Conditions"
+      # ============================================================================
+      # TURN LIGHTS ON - When smart occupancy is ON
+      # ============================================================================
+      - alias: "Light On - Follow Smart Occupancy"
         if:
+          - condition: or
+            alias: "Smart Occupancy is ON"
+            conditions:
+              - condition: template
+                value_template: "{{ smart_occ_sensor != none and is_state(smart_occ_sensor, 'on') }}"
+              - condition: template
+                value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
+          
+          # Environmental conditions for turning ON
           - condition: and
             conditions:
               # --- SUN SECTION ---
@@ -2014,37 +2071,32 @@ actions:
                   - alias: Use Sun is disabled
                     condition: template
                     value_template: "{{ use_sun == 'sun_disabled' }}"
-                  - alias: Sun Elevation Thresholds or Triggered
-                    condition: or
+                  - alias: Sun Elevation Conditions Met
+                    condition: and
                     conditions:
-                      - condition: trigger
-                        id:
-                          - sun setting threshold
-                      - condition: and
-                        alias: Sun Elevation Levels
+                      - alias: If sun is setting and below threshold
+                        condition: or
                         conditions:
-                          - alias: If Elevation is below the Setting Below Limit
-                            condition: or
-                            conditions:
-                              - condition: state
-                                entity_id: sun.sun
-                                attribute: rising
-                                state: false
-                              - condition: numeric_state
-                                entity_id: sun.sun
-                                attribute: elevation
-                                below: !input sun_falling
-                          - alias: If Elevation is below Rising Above Limit
-                            condition: or
-                            conditions:
-                              - condition: state
-                                entity_id: sun.sun
-                                attribute: rising
-                                state: true
-                              - condition: numeric_state
-                                entity_id: sun.sun
-                                attribute: elevation
-                                below: !input sun_rising
+                          - condition: state
+                            entity_id: sun.sun
+                            attribute: rising
+                            state: false
+                          - condition: numeric_state
+                            entity_id: sun.sun
+                            attribute: elevation
+                            below: !input sun_falling
+                      - alias: If sun is rising and below threshold
+                        condition: or
+                        conditions:
+                          - condition: state
+                            entity_id: sun.sun
+                            attribute: rising
+                            state: true
+                          - condition: numeric_state
+                            entity_id: sun.sun
+                            attribute: elevation
+                            below: !input sun_rising
+              
               # --- LUX SECTION ---
               - alias: "Lux Logic (Pass if disabled OR conditions met)"
                 condition: or
@@ -2052,121 +2104,62 @@ actions:
                   - alias: Use Lux is disabled
                     condition: template
                     value_template: "{{ use_lux == 'use_lux_disabled' or lux_sensor | length == 0 }}"
-                  - alias: Illuminance Thresholds or Triggered
-                    condition: or
-                    conditions:
-                      - condition: trigger
-                        id:
-                          - illuminance low limit
-                      - alias: Illuminance Levels
-                        condition: and
-                        conditions:
-                          - condition: numeric_state
-                            entity_id: !input lux_sensor
-                            below: !input lux_low_val
+                  - alias: Illuminance is below threshold
+                    condition: numeric_state
+                    entity_id: !input lux_sensor
+                    below: !input lux_low_val
         then:
-          - alias: Light Control Actions - On
-            choose:
-              - alias: "Master ON Sequence"
-                conditions:
-                  - condition: and
-                    conditions:
-                      # 1. Trigger Filter WITH EDGE CHECKS
-                      - condition: or
-                        conditions:
-                          - condition: and
-                            conditions:
-                              - condition: trigger
-                                id: base occupancy on
-                              - "{{ 'base_occ' in smart_occ_rising_edge }}"
-                          - condition: and
-                            conditions:
-                              - condition: trigger
-                                id: entering on
-                              - "{{ 'entering' in smart_occ_rising_edge }}"
-                          - condition: and
-                            conditions:
-                              - condition: trigger
-                                id: detected hold on
-                              - "{{ 'detected_hold' in smart_occ_rising_edge }}"
-                          - condition: and
-                            conditions:
-                              - condition: trigger
-                                id: leaving off
-                              - "{{ 'leaving' in smart_occ_rising_edge }}"
-                          - condition: and
-                            conditions:
-                              - condition: trigger
-                                id: clear hold off
-                              - "{{ 'clear_hold' in smart_occ_rising_edge }}"
-
-                      # 2. Occupancy Safety Gate
-                      - condition: or
-                        conditions:
-                          - condition: trigger
-                            id:
-                              - entering on
-                              - detected hold on
-                          - condition: template
-                            alias: "Base Occupancy is ON"
-                            value_template: "{{ base_occ | length > 0 and is_state(base_occ, 'on') }}"
-                          - condition: template
-                            alias: "Smart Sensor is ON"
-                            value_template: "{{ smart_occ_sensor != none and is_state(smart_occ_sensor, 'on') }}"
-                          - condition: template
-                            alias: "Smart Helper is ON"
-                            value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
-
-                      # 3. Hold Entity Gate
-                      - condition: or
-                        alias: "Cleared Hold Check"
-                        conditions:
-                          - condition: template
-                            value_template: "{{ cleared_hold_entities | length == 0 }}"
-                          - condition: state
-                            entity_id: !input cleared_hold_entities
-                            state: "off"
-                            match: any
+          # Turn on lights
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ light_entities | length > 0 }}"
                 sequence:
-                  # Turn on lights
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ light_entities | length > 0 }}"
-                        sequence:
-                          - action: light.turn_on
-                            target:
-                              entity_id: "{{ light_entities }}"
-                  # Turn on switches
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ switch_entities | length > 0 }}"
-                        sequence:
-                          - action: switch.turn_on
-                            target:
-                              entity_id: "{{ switch_entities }}"
-                  # Activate scenes
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ scene_entities | length > 0 }}"
-                        sequence:
-                          - action: scene.turn_on
-                            target:
-                              entity_id: "{{ scene_entities }}"
-                  # Run scripts
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ script_entities | length > 0 }}"
-                        sequence:
-                          - action: script.turn_on
-                            target:
-                              entity_id: "{{ script_entities }}"
+                  - action: light.turn_on
+                    target:
+                      entity_id: "{{ light_entities }}"
+          # Turn on switches
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ switch_entities | length > 0 }}"
+                sequence:
+                  - action: switch.turn_on
+                    target:
+                      entity_id: "{{ switch_entities }}"
+          # Activate scenes
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ scene_entities | length > 0 }}"
+                sequence:
+                  - action: scene.turn_on
+                    target:
+                      entity_id: "{{ scene_entities }}"
+          # Run scripts
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ script_entities | length > 0 }}"
+                sequence:
+                  - action: script.turn_on
+                    target:
+                      entity_id: "{{ script_entities }}"
 
-      - alias: "Light Off Conditions"
+      # ============================================================================
+      # TURN LIGHTS OFF - When smart occupancy is OFF
+      # ============================================================================
+      - alias: "Light Off - Follow Smart Occupancy"
         if:
+          - condition: or
+            alias: "Smart Occupancy is OFF"
+            conditions:
+              - condition: template
+                value_template: "{{ smart_occ_sensor != none and is_state(smart_occ_sensor, 'off') }}"
+              - condition: template
+                value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'off') }}"
+          
+          # Environmental conditions for turning OFF
           - condition: and
             conditions:
               # --- SUN SECTION ---
@@ -2176,37 +2169,31 @@ actions:
                   - condition: template
                     alias: "Sun is disabled"
                     value_template: "{{ use_sun == 'sun_disabled' }}"
-                  - alias: "Sun Elevation Thresholds or Triggered"
-                    condition: or
+                  - alias: "Sun Elevation allows OFF"
+                    condition: and
                     conditions:
-                      - condition: trigger
-                        id:
-                          - sun rising threshold
-                      - condition: and
-                        alias: "Sun Elevation Levels"
+                      - alias: "Sun is high enough (setting)"
+                        condition: or
                         conditions:
-                          - alias: "Afternoon Check: Sun is falling but still high"
-                            condition: or
-                            conditions:
-                              - condition: state
-                                entity_id: sun.sun
-                                attribute: rising
-                                state: true
-                              - condition: numeric_state
-                                entity_id: sun.sun
-                                attribute: elevation
-                                above: !input sun_falling
-                          - alias: "Morning Check: Sun is rising and high enough"
-                            condition: or
-                            conditions:
-                              - condition: state
-                                entity_id: sun.sun
-                                attribute: rising
-                                state: false
-                              - condition: numeric_state
-                                entity_id: sun.sun
-                                attribute: elevation
-                                above: !input sun_rising
+                          - condition: state
+                            entity_id: sun.sun
+                            attribute: rising
+                            state: true
+                          - condition: numeric_state
+                            entity_id: sun.sun
+                            attribute: elevation
+                            above: !input sun_falling
+                      - alias: "Sun is high enough (rising)"
+                        condition: or
+                        conditions:
+                          - condition: state
+                            entity_id: sun.sun
+                            attribute: rising
+                            state: false
+                          - condition: numeric_state
+                            entity_id: sun.sun
+                            attribute: elevation
+                            above: !input sun_rising
 
               # --- LUX SECTION ---
               - alias: "Lux Logic Off (Pass if disabled OR conditions met)"
@@ -2215,99 +2202,28 @@ actions:
                   - condition: template
                     alias: "Lux is disabled"
                     value_template: "{{ 'use_lux_enabled' not in use_lux or lux_sensor | length == 0 }}"
-                  - alias: "Illuminance Thresholds or Triggered"
-                    condition: or
-                    conditions:
-                      - condition: trigger
-                        id:
-                          - illuminance high limit
-                      - alias: "Illuminance Levels"
-                        condition: and
-                        conditions:
-                          - condition: numeric_state
-                            entity_id: !input lux_sensor
-                            above: !input lux_high_val
+                  - alias: "Illuminance is above threshold"
+                    condition: numeric_state
+                    entity_id: !input lux_sensor
+                    above: !input lux_high_val
         then:
-          - alias: Light Control Actions - Off
-            choose:
-              - alias: "Master Clear/Off Sequence"
-                conditions:
-                  # 1. Trigger Filter WITH EDGE CHECKS
-                  - condition: or
-                    conditions:
-                      - condition: and
-                        conditions:
-                          - condition: trigger
-                            id: base occupancy off
-                          - "{{ 'base_occ' in smart_occ_falling_edge }}"
-                      - condition: and
-                        conditions:
-                          - condition: trigger
-                            id: leaving on
-                          - "{{ 'leaving' in smart_occ_falling_edge }}"
-                      - condition: and
-                        conditions:
-                          - condition: trigger
-                            id: entering off
-                          - "{{ 'entering' in smart_occ_falling_edge }}"
-                      - condition: and
-                        conditions:
-                          - condition: trigger
-                            id: clear hold on
-                          - "{{ 'cleared_hold' in smart_occ_falling_edge }}"
-                      - condition: and
-                        conditions:
-                          - condition: trigger
-                            id: detected hold off
-                          # Hold releases don't need edge filter
-
-                  # 2. Occupancy Safety Gate
-                  - condition: or
-                    alias: "Bypass safety for specific triggers, otherwise ensure room is empty"
-                    conditions:
-                      - condition: trigger
-                        id:
-                          - base occupancy off
-                          - leaving on
-                          - entering off
-                          - clear hold on
-                          - detected hold off
-                      - condition: and
-                        alias: "Ensure all active occupancy systems are actually OFF"
-                        conditions:
-                          - condition: template
-                            value_template: "{{ base_occ | length == 0 or is_state(base_occ, 'off') }}"
-                          - condition: template
-                            value_template: "{{ smart_occ_sensor == none or is_state(smart_occ_sensor, 'off') }}"
-                          - condition: template
-                            value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
-
-                  # 3. Hold Entity Gate
-                  - condition: or
-                    alias: "Detected Hold Bypass"
-                    conditions:
-                      - "{{ detected_hold_entities | length == 0 }}"
-                      - condition: state
-                        entity_id: !input detected_hold_entities
-                        state: "off"
-                        match: all
+          # Turn off lights
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ light_entities | length > 0 }}"
                 sequence:
-                  # Turn off lights
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ light_entities | length > 0 }}"
-                        sequence:
-                          - action: light.turn_off
-                            target:
-                              entity_id: "{{ light_entities }}"
-                  # Turn off switches
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ switch_entities | length > 0 }}"
-                        sequence:
-                          - action: switch.turn_off
-                            target:
-                              entity_id: "{{ switch_entities }}"
+                  - action: light.turn_off
+                    target:
+                      entity_id: "{{ light_entities }}"
+          # Turn off switches
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ switch_entities | length > 0 }}"
+                sequence:
+                  - action: switch.turn_off
+                    target:
+                      entity_id: "{{ switch_entities }}"
+
 mode: single
