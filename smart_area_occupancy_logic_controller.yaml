@@ -1,7 +1,7 @@
 blueprint:
   name: "💠 BETA Smart Area Occupancy"
   description: >
-    **Version: 0.9**
+    **Version: 0.8**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -1383,6 +1383,12 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
           - "{{ 'entering' in smart_occ_rising_edge }}"
+          - condition: template
+            alias: "Check Entering Group logic (Any/All vs Control State)"
+            value_template: >
+              {% set matching = expand(entering_sensors) | selectattr('state', 'eq', entering_sensor_control_state) | list | length %}
+              {% set total = entering_sensors | length %}
+              {{ (entering_type_on == 'any' and matching > 0) or (entering_type_on == 'all' and matching == total) }}
       
       - alias: Leaving OFF (Only if currently OFF and rising edge allows it)
         condition: and
@@ -1400,6 +1406,14 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
           - "{{ 'leaving' in smart_occ_rising_edge }}"
+          # --- Logic: Sensors must NOT be in the Control State to allow turning ON ---
+          - condition: template
+            alias: "Check Leaving Group logic (Inverse of Control State)"
+            value_template: >
+              {% set opposite_state = 'off' if leaving_sensor_control_state == 'on' else 'on' %}
+              {% set matching = expand(leaving_sensors) | selectattr('state', 'eq', opposite_state) | list | length %}
+              {% set total = leaving_sensors | length %}
+              {{ (leaving_type_on == 'any' and matching > 0) or (leaving_type_on == 'all' and matching == total) }}
       
       - alias: Detected Hold ON (Only if currently OFF or can trigger)
         condition: and
@@ -1459,6 +1473,14 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
           - "{{ 'entering' in smart_occ_falling_edge }}"
+          # --- Logic: Sensors must have returned to the 'Clear' state ---
+          - condition: template
+            alias: "Check Entering Group logic (Inverse for Falling Edge)"
+            value_template: >
+              {% set opposite_state = 'off' if entering_sensor_control_state == 'on' else 'on' %}
+              {% set matching = expand(entering_sensors) | selectattr('state', 'eq', opposite_state) | list | length %}
+              {% set total = entering_sensors | length %}
+              {{ (entering_type_off == 'any' and matching > 0) or (entering_type_off == 'all' and matching == total) }}
       
       - alias: Leaving ON (Only if currently ON and falling edge allows it)
         condition: and
@@ -1476,6 +1498,13 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
           - "{{ 'leaving' in smart_occ_falling_edge }}"
+          # --- Logic: Sensors must match the 'Leaving' control state ---
+          - condition: template
+            alias: "Check Leaving Group logic (Match Control State for Falling Edge)"
+            value_template: >
+              {% set matching = expand(leaving_sensors) | selectattr('state', 'eq', leaving_sensor_control_state) | list | length %}
+              {% set total = leaving_sensors | length %}
+              {{ (leaving_type_off == 'any' and matching > 0) or (leaving_type_off == 'all' and matching == total) }}
       
       - alias: Cleared Hold ON (Only if currently ON or can trigger)
         condition: and
