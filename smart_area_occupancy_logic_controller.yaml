@@ -1820,7 +1820,7 @@ actions:
               
               # Cleared hold must NOT be blocking
               - condition: template
-                value_template: "{{ cleared_hold_is_off }}"
+                value_template: "{{ not cleared_hold_is_on }}"
               
               # Check if should turn ON
               - condition: or
@@ -1893,7 +1893,7 @@ actions:
               
               # Detected hold must NOT be blocking
               - condition: template
-                value_template: "{{ detected_hold_is_off }}"
+                value_template: "{{ not detected_hold_is_on }}"
               
               # Check if should turn OFF
               - condition: or
