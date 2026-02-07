@@ -1770,6 +1770,17 @@ actions:
                     event_data:
                       target_sensor: "{{ smart_occ_sensor }}"
                       state: "{{ states(base_occ) }}"
+                      rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                      falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                      base_occ_state: "{{ states(base_occ) }}"
+                      entering_is_on: "{{ entering_is_on }}"
+                      entering_is_off: "{{ entering_is_off }}"
+                      leaving_is_on: "{{ leaving_is_on }}"
+                      leaving_is_off: "{{ leaving_is_off }}"
+                      detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      detected_hold_is_off: "{{ detected_hold_is_off }}"
+                      cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      cleared_hold_is_off: "{{ cleared_hold_is_off }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -1795,6 +1806,17 @@ actions:
                     event_data:
                       target_sensor: "{{ smart_occ_sensor }}"
                       state: "{{ fallback_state_sensor }}"
+                      rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                      falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                      base_occ_state: "{{ states(base_occ) }}"
+                      entering_is_on: "{{ entering_is_on }}"
+                      entering_is_off: "{{ entering_is_off }}"
+                      leaving_is_on: "{{ leaving_is_on }}"
+                      leaving_is_off: "{{ leaving_is_off }}"
+                      detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      detected_hold_is_off: "{{ detected_hold_is_off }}"
+                      cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      cleared_hold_is_off: "{{ cleared_hold_is_off }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -1849,16 +1871,6 @@ actions:
                     event_data:
                       target_sensor: "{{ smart_occ_sensor }}"
                       state: "on"
-                      debug:
-                        rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
-                        falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
-                        entering_is_on: "{{ entering_is_on }}"
-                        entering_is_off: "{{ entering_is_off }}"
-                        leaving_is_on: "{{ leaving_is_on }}"
-                        leaving_is_off: "{{ leaving_is_off }}"
-                        detected_hold_is_on: "{{ detected_hold_is_on }}"
-                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
-                      # Debug attributes
                       rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
                       falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
                       base_occ_state: "{{ states(base_occ) }}"
@@ -1867,7 +1879,9 @@ actions:
                       leaving_is_on: "{{ leaving_is_on }}"
                       leaving_is_off: "{{ leaving_is_off }}"
                       detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      detected_hold_is_off: "{{ detected_hold_is_off }}"
                       cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      cleared_hold_is_off: "{{ cleared_hold_is_off }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -1922,16 +1936,6 @@ actions:
                     event_data:
                       target_sensor: "{{ smart_occ_sensor }}"
                       state: "off"
-                      debug:
-                        rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
-                        falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
-                        entering_is_on: "{{ entering_is_on }}"
-                        entering_is_off: "{{ entering_is_off }}"
-                        leaving_is_on: "{{ leaving_is_on }}"
-                        leaving_is_off: "{{ leaving_is_off }}"
-                        detected_hold_is_on: "{{ detected_hold_is_on }}"
-                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
-                      # Debug attributes
                       rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
                       falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
                       base_occ_state: "{{ states(base_occ) }}"
@@ -1940,7 +1944,9 @@ actions:
                       leaving_is_on: "{{ leaving_is_on }}"
                       leaving_is_off: "{{ leaving_is_off }}"
                       detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      detected_hold_is_off: "{{ detected_hold_is_off }}"
                       cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      cleared_hold_is_off: "{{ cleared_hold_is_off }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -1977,6 +1983,17 @@ actions:
                         {% else %}
                           {{ states(base_occ) }}
                         {% endif %}
+                      rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                      falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                      base_occ_state: "{{ states(base_occ) }}"
+                      entering_is_on: "{{ entering_is_on }}"
+                      entering_is_off: "{{ entering_is_off }}"
+                      leaving_is_on: "{{ leaving_is_on }}"
+                      leaving_is_off: "{{ leaving_is_off }}"
+                      detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      detected_hold_is_off: "{{ detected_hold_is_off }}"
+                      cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      cleared_hold_is_off: "{{ cleared_hold_is_off }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
@@ -2017,6 +2034,17 @@ actions:
                         {% else %}
                           {{ states(base_occ) }}
                         {% endif %}
+                      rising_should_turn_on: "{{ smart_occ_rising_edge_should_turn_on }}"
+                      falling_should_turn_off: "{{ smart_occ_falling_edge_should_turn_off }}"
+                      base_occ_state: "{{ states(base_occ) }}"
+                      entering_is_on: "{{ entering_is_on }}"
+                      entering_is_off: "{{ entering_is_off }}"
+                      leaving_is_on: "{{ leaving_is_on }}"
+                      leaving_is_off: "{{ leaving_is_off }}"
+                      detected_hold_is_on: "{{ detected_hold_is_on }}"
+                      detected_hold_is_off: "{{ detected_hold_is_off }}"
+                      cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                      cleared_hold_is_off: "{{ cleared_hold_is_off }}"
               - if:
                   - condition: template
                     value_template: "{{ smart_occ_helper != none }}"
