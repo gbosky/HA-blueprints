@@ -1786,19 +1786,46 @@ actions:
           # Falling edge conditions met OR cleared hold can trigger
           # ============================================================================
 
-          # Detected hold must NOT be blocking (explicit check for disabled/empty)
-          - condition: or
-            alias: "Detected hold is not blocking"
+          - alias: Smart Occupancy - Turn OFF
             conditions:
-              # Detected hold is disabled
-              - condition: template
-                value_template: "{{ use_detected_hold != 'detected_hold_enabled' }}"
-              # Detected hold entities are empty
-              - condition: template
-                value_template: "{{ detected_hold_entities | length == 0 }}"
-              # Detected hold is not active
-              - condition: template
-                value_template: "{{ not detected_hold_is_on }}"
+              # Must be a relevant trigger
+              - condition: trigger
+                id:
+                  - "base occupancy off"
+                  - "entering off"
+                  - "leaving on"
+                  - "clear hold on"
+              
+              # Detected hold must NOT be blocking (explicit check for disabled/empty)
+              - condition: or
+                alias: "Detected hold is not blocking"
+                conditions:
+                  # Detected hold is disabled
+                  - condition: template
+                    value_template: "{{ use_detected_hold != 'detected_hold_enabled' }}"
+                  # Detected hold entities are empty
+                  - condition: template
+                    value_template: "{{ detected_hold_entities | length == 0 }}"
+                  # Detected hold is not active
+                  - condition: template
+                    value_template: "{{ not detected_hold_is_on }}"
+              
+              # Check if should turn OFF
+              - condition: or
+                conditions:
+                  # Falling edge wants to turn OFF
+                  - condition: template
+                    value_template: "{{ smart_occ_falling_edge_should_turn_off }}"
+                  
+                  # OR Cleared hold can trigger (if enabled)
+                  - condition: and
+                    conditions:
+                      - condition: trigger
+                        id: clear hold on
+                      - condition: template
+                        value_template: "{{ smart_occ_cleared_hold_falling_edge == 'trigger_and_hold' }}"
+                      - condition: template
+                        value_template: "{{ cleared_hold_is_on }}"
 
             sequence:
               - if:
