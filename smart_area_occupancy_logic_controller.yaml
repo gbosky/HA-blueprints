@@ -1,6 +1,8 @@
 blueprint:
   name: "💠 BETA Smart Area Occupancy"
   description: >
+    Need to adjuste the behaviors of how any/all detecked triggers work. It is not working correctly for an any "Off" trigger as intended and they are flipped??
+    
     **Version: 0.9**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
