@@ -16,22 +16,19 @@ blueprint:
     ## 🎯 Key Features
 
 
-    - **Multi-Sensor Occupancy Logic** - Combine a single base occupancy with entering/leaving entities to create smarter occupancy logic
+    - **Multi-Sensor Occupancy Logic** - Combine a single base occupancy sensor with entering/leaving sensors to create smarter area occupancy logic
 
-    - **Occupancy Holds** - Lock occupancy in detected or cleared states independent of sensors
+    - **Occupancy Holds** - Lock occupancy in detected or cleared states independent of a single sensor
 
-    - **Flexible Detection Types** - Choose ANY or ALL logic for entering/leaving/hold conditions
+    - **Flexible Detection Types** - Choose ANY/ALL conditions for groups of sensors to determine exactly when entering/leaving/hold conditions cause area occupancy state changes
 
-    - **Disable Safeguards** - Pause automation entirely or only light control with fallback states
+    - **Disable Safeguards** - Pause automation entirely with fallback states or disable light control only, so a single automation can maintain area occupancy and/or light control
 
-    - **State Tracking** - Optional Boolean helper and Template Sensor for monitoring outside "smart" occupancy state of the automation
+    - **State Tracking** - Optional Boolean helper and Template Sensor for monitoring "smart" occupancy state outside of the automation
 
-    - **Template Sensor Integration** - Publish occupancy state to custom sensor via event
+    - **Template Sensor Integration** - Push occupancy state to custom sensor via event in case you want to build your own binary sensor
 
-    - **Optional Light Control** - Built-in simple light on/off control to follow logical smart occupancy state
-
-    - **Environmental Awareness** - Consider illuminance and sun elevation before turning on lights
-
+    - **Light Control** - Built-in simple light on/off control to follow logical calculated smart occupancy state, with sun elevation and illuminance thresholds
 
     ## 📊 Occupancy State Priority
 
@@ -91,7 +88,10 @@ blueprint:
 
 
     ### Example Template Sensor Configuration
+
     ```yaml
+
+  
 
           - trigger:
               - platform: event
@@ -112,6 +112,80 @@ blueprint:
                   {% else %}
                     {{ has_value(this.entity_id) }}
                   {% endif %}
+                attributes:
+                  smart_occupancy_rising_trigger: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.rising_should_turn_on }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'smart_occupancy_rising_trigger') }}
+                    {% endif %}
+                  smart_occupancy_falling_trigger: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.falling_should_turn_off }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'smart_occupancy_falling_trigger') }}
+                    {% endif %}
+                  entering_is_on: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.entering_is_on }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'entering_is_on') }}
+                    {% endif %}
+                  entering_is_off: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.entering_is_off }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'entering_is_off') }}
+                    {% endif %}
+                  leaving_is_on: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.leaving_is_on }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'leaving_is_on') }}
+                    {% endif %}
+                  leaving_is_off: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.leaving_is_off }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'leaving_is_off') }}
+                    {% endif %}
+                  detected_hold_is_on: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.detected_hold_is_on }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'detected_hold_is_on') }}
+                    {% endif %}
+                  detected_hold_is_off: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.detected_hold_is_off }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'detected_hold_is_off') }}
+                    {% endif %}
+                  cleared_hold_is_on: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.cleared_hold_is_on }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'cleared_hold_is_on') }}
+                    {% endif %}
+                  cleared_hold_is_off: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.cleared_hold_is_off }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'cleared_hold_is_off') }}
+                    {% endif %}
+                  base_occupancy_state: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.base_occ_state }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'base_occ') }}
+                    {% endif %}
+                  last_triggered_by: >
+                    {% if trigger.event.data.target_sensor == this.entity_id %}
+                      {{ trigger.event.data.last_triggered_by }}
+                    {% else %}
+                      {{ state_attr(this.entity_id, 'last_triggered_by') }}
+                    {% endif %}
+                
             binary_sensor:
               - name: "Smart Occupancy Test 2"
                 unique_id: smart_area_occupancy_test_2
@@ -120,8 +194,8 @@ blueprint:
 
     ```
 
-    ### All that is required is adjusting the unique_id and name of the sensor. The automation will handle the rest if state and availability are the same and each binary_sensor is configured to listen to the 'smart_occupancy_update' event.
-
+    ### All that is required is adjusting the unique_id and name of the sensor. 
+    The automation will handle the rest to update the state, availability, and attributes as long as each binary_sensor is configured to listen to the 'smart_occupancy_update' event and unique.
 
     </details>
   domain: automation
