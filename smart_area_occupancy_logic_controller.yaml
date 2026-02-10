@@ -1553,19 +1553,27 @@ conditions:
           - condition: or
             conditions:
               # Can trigger if set to rising_edge mode
-              - condition: template
-                value_template: "{{ smart_occ_detected_hold_rising_edge == 'trigger_and_hold' }}"
-              # Or if just holding and smart_occ is already ON
               - condition: and
                 conditions:
                   - condition: template
-                    value_template: "{{ smart_occ_detected_hold_rising_edge == 'hold' }}"
+                    value_template: "{{ smart_occ_detected_hold_rising_edge == 'trigger_and_hold' }}"
                   - condition: and
                     conditions:
                       - condition: template
-                        value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
+                        value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
                       - condition: template
-                        value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+                        value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
+              # Or if just holding and smart_occ is already ON
+              #- condition: and
+              #  conditions:
+              #    - condition: template
+              #      value_template: "{{ smart_occ_detected_hold_rising_edge == 'hold' }}"
+              #    - condition: and
+              #      conditions:
+              #        - condition: template
+              #          value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
+              #        - condition: template
+              #          value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
 
       - alias: Cleared Hold Off / Released (Only if currently OFF or can trigger)
         condition: and
@@ -1687,20 +1695,28 @@ conditions:
             value_template: "{{ cleared_hold_is_on and not cleared_hold_is_off }}"
           - condition: or
             conditions:
-              # Can trigger if set to trigger_and_hold mode
-              - condition: template
-                value_template: "{{ smart_occ_cleared_hold_falling_edge == 'trigger_and_hold' }}"
-              # Or if just holding and smart_occ is already OFF
+              # Can trigger if set to rising_edge mode
               - condition: and
                 conditions:
                   - condition: template
-                    value_template: "{{ smart_occ_cleared_hold_falling_edge == 'hold' }}"
-                  - condition: or
+                    value_template: "{{ smart_occ_cleared_hold_falling_edge == 'trigger_and_hold' }}"
+                  - condition: and
                     conditions:
                       - condition: template
-                        value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
+                        value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
                       - condition: template
-                        value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
+                        value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+              # Or if just holding and smart_occ is already OFF
+              #- condition: and
+              #  conditions:
+              #    - condition: template
+              #      value_template: "{{ smart_occ_cleared_hold_falling_edge == 'hold' }}"
+              #    - condition: or
+              #      conditions:
+              #        - condition: template
+              #          value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
+              #        - condition: template
+              #          value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
       
       # ============================================================================
       # ENVIRONMENTAL TRIGGERS (Light control)
