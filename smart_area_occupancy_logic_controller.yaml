@@ -238,9 +238,9 @@ blueprint:
           multiple: false
 
     light_target:
-      name: Light Target (Optional)
+      name: Light / Switch / Scene / Script Target (Optional)
       description: >
-        Provide a Light, Scene, Script, or Switch that will be controlled based on the calculated smart occupancy.
+        Provide a Light, Switch, Scene, or Script that will be controlled based on the calculated smart occupancy.
       default: []
       selector:
         target:
@@ -248,8 +248,33 @@ blueprint:
             domain:
               - switch
               - light
-              #- scene
-              #- script
+              - scene
+              - script
+
+    off_behavior:
+      name: Off Behavior (Scripts ONLY)
+      description: >
+        If using a script above, and dont want to use a separate off script below, select how to handle the off behavior. If no off target script is provided, the off behavior will skip and do nothing.
+      default: "repeat"
+      selector:
+        select:
+          options:
+            - label: "Repeat 'On' Target Script"
+              value: "repeat"
+            - label: "Use 'Off' Target Script Provided Below" 
+              value: "off"
+
+    off_light_target:
+      name: Off Light Scene / Script (Optional)
+      description: >
+        If using a scene or script above, provide a follow up scene or script to do when turning off the light / when calculated smart occupancy cleared.
+      default: []
+      selector:
+        target:
+          entity:
+            domain:
+              - scene
+              - script
 
     # --- Automation Controls ---
     automation_controls:
@@ -985,7 +1010,10 @@ variables:
   smart_occ_sensor: !input smart_occ_sensor
   
   light_target: !input light_target
+  off_behavior: !input off_behavior
+  off_light_target: !input off_light_target
   # Split domains for light targets
+
   light_entities: >
     {% if light_target.entity_id is defined %}
       {{ expand(light_target.entity_id) | selectattr('domain', 'eq', 'light') | map(attribute='entity_id') | list }}
@@ -1010,6 +1038,20 @@ variables:
   script_entities: >
     {% if light_target.entity_id is defined %}
       {{ expand(light_target.entity_id) | selectattr('domain', 'eq', 'script') | map(attribute='entity_id') | list }}
+    {% else %}
+      []
+    {% endif %}
+
+  off_scene_entities: >
+    {% if off_light_target.entity_id is defined %}
+      {{ expand(off_light_target.entity_id) | selectattr('domain', 'eq', 'scene') | map(attribute='entity_id') | list }}
+    {% else %} [] {% endif %}
+
+  off_script_entities: >
+    {% if off_behavior == 'repeat' %}
+      {{ script_entities }}
+    {% elif off_behavior == 'off' and off_light_target.entity_id is defined %}
+      {{ expand(off_light_target.entity_id) | selectattr('domain', 'eq', 'script') | map(attribute='entity_id') | list }}
     {% else %}
       []
     {% endif %}
@@ -1912,55 +1954,8 @@ actions:
             alias: "Calculated state is OFF"
             value_template: "{{ calc_smart_occ == 'off' }}"
           
-          # Environmental conditions for turning OFF
-          - condition: and
-            conditions:
-              # --- SUN SECTION ---
-              - alias: "Sun Logic Off (Pass if disabled OR conditions met)"
-                condition: or
-                conditions:
-                  - condition: template
-                    alias: "Sun is disabled"
-                    value_template: "{{ use_sun == 'sun_disabled' }}"
-                  - alias: "Sun Elevation allows OFF"
-                    condition: and
-                    conditions:
-                      - alias: "Sun is high enough (setting)"
-                        condition: or
-                        conditions:
-                          - condition: state
-                            entity_id: sun.sun
-                            attribute: rising
-                            state: true
-                          - condition: numeric_state
-                            entity_id: sun.sun
-                            attribute: elevation
-                            above: !input sun_falling
-                      - alias: "Sun is high enough (rising)"
-                        condition: or
-                        conditions:
-                          - condition: state
-                            entity_id: sun.sun
-                            attribute: rising
-                            state: false
-                          - condition: numeric_state
-                            entity_id: sun.sun
-                            attribute: elevation
-                            above: !input sun_rising
-
-              # --- LUX SECTION ---
-              - alias: "Lux Logic Off (Pass if disabled OR conditions met)"
-                condition: or
-                conditions:
-                  - condition: template
-                    alias: "Lux is disabled"
-                    value_template: "{{ 'use_lux_enabled' not in use_lux or lux_sensor | length == 0 }}"
-                  - alias: "Illuminance is above threshold"
-                    condition: numeric_state
-                    entity_id: !input lux_sensor
-                    above: !input lux_high_val
         then:
-          # Turn off lights
+          # Turn on lights
           - choose:
               - conditions:
                   - condition: template
@@ -1969,7 +1964,7 @@ actions:
                   - action: light.turn_off
                     target:
                       entity_id: "{{ light_entities }}"
-          # Turn off switches
+          # Turn on switches
           - choose:
               - conditions:
                   - condition: template
@@ -1978,5 +1973,23 @@ actions:
                   - action: switch.turn_off
                     target:
                       entity_id: "{{ switch_entities }}"
+          # Activate scenes
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ off_scene_entities | length > 0 }}"
+                sequence:
+                  - action: scene.turn_on
+                    target:
+                      entity_id: "{{ off_scene_entities }}"
+          # Run scripts
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ off_script_entities | length > 0 }}"
+                sequence:
+                  - action: script.turn_on
+                    target:
+                      entity_id: "{{ off_script_entities }}"
 
 mode: single
