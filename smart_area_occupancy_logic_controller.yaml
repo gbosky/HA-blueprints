@@ -938,7 +938,10 @@ blueprint:
           name: Illuminance Low Lux Delay
           description: >
             Set how long the illuminance level must remain below the Low Lux Value.
-          default: 0
+          default: 
+            hours: 0
+            minutes: 5
+            seconds: 0
           selector:
             duration:
         lux_high_val:
@@ -957,7 +960,10 @@ blueprint:
           name: Illuminance High Lux Delay
           description: >
             Set how long the illuminance level must remain above the High Lux Value.
-          default: 0
+          default: 
+            hours: 0
+            minutes: 5
+            seconds: 0
           selector:
             duration:
 
@@ -1429,10 +1435,12 @@ triggers:
     entity_id: !input lux_sensor
     below: !input lux_low_val
     id: illuminance low limit
+    for: !input lux_low_val_delay
   - trigger: numeric_state
     entity_id: !input lux_sensor
     id: illuminance high limit
     above: !input lux_high_val
+    for: !input lux_high_val_delay
 
 #Trigger Conditions
 conditions:
