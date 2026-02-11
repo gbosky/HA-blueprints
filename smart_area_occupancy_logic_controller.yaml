@@ -1,7 +1,7 @@
 blueprint:
   name: "💠 Smart Area Occupancy"
   description: >
-    **Version: 0.97**
+    **Version: 0.98**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -1480,9 +1480,9 @@ conditions:
             alias: "Smart Occ is currently OFF"
             conditions:
               - condition: template
-                value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
+                value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
-                value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
+                value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
       
       - alias: Entering ON (Only if currently OFF and rising edge allows it)
         condition: and
@@ -1499,9 +1499,9 @@ conditions:
             alias: "Smart Occ is currently OFF"
             conditions:
               - condition: template
-                value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
+                value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
-                value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
+                value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
           - "{{ 'entering' in smart_occ_rising_edge }}"
           # --- Logic is now covered in entering_is_off/_on and condtion above ---
           #- condition: template
@@ -1526,9 +1526,9 @@ conditions:
             alias: "Smart Occ is currently OFF"
             conditions:
               - condition: template
-                value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
+                value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
-                value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
+                value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
           - "{{ 'leaving' in smart_occ_rising_edge }}"
           # --- Logic is now covered in leaving_is_off/_on and condtion above ---
           #- condition: template
@@ -1567,10 +1567,10 @@ conditions:
                     conditions:
                       - alias: "Smart Occ Sensor is currently EMPTY/OFF"
                         condition: template
-                        value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
+                        value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
                       - alias: "Smart Occ Helper is currently EMPTY/OFF"
                         condition: template
-                        value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
+                        value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
               # Or if just holding and smart_occ is already ON
               #- condition: and
               #  conditions:
@@ -1597,9 +1597,9 @@ conditions:
           - condition: and
             conditions:
               - condition: template
-                value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
+                value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
-                value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
+                value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
       
       # ============================================================================
       # FALLING EDGE TRIGGERS (Should turn OFF)
