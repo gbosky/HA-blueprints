@@ -1,7 +1,7 @@
 blueprint:
   name: "💠 Smart Area Occupancy"
   description: >
-    **Version: 0.98**
+    **Version: 0.99**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -1483,6 +1483,19 @@ conditions:
                 value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
+          - alias: Cleared Hold is Not On and Enabled
+            condition: and
+            conditions:
+                - alias: "Clearing Hold is enabled"
+                  condition: template
+                  value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
+                - condition: trigger
+                  id: "clear hold on"
+                - condition: template
+                  value_template: "{{ cleared_hold_entities | length > 0 }}"
+                - condition: template
+                  alias: "Ensure logic is valid (Not in a dead-zone)"
+                  value_template: "{{ not cleared_hold_is_on }}"
       
       - alias: Entering ON (Only if currently OFF and rising edge allows it)
         condition: and
@@ -1503,6 +1516,19 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
           - "{{ 'entering' in smart_occ_rising_edge }}"
+          - alias: Cleared Hold is Not On and Enabled
+            condition: and
+            conditions:
+                - alias: "Clearing Hold is enabled"
+                  condition: template
+                  value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
+                - condition: trigger
+                  id: "clear hold on"
+                - condition: template
+                  value_template: "{{ cleared_hold_entities | length > 0 }}"
+                - condition: template
+                  alias: "Ensure logic is valid (Not in a dead-zone)"
+                  value_template: "{{ not cleared_hold_is_on }}"
           # --- Logic is now covered in entering_is_off/_on and condtion above ---
           #- condition: template
           #  alias: "Check Entering Group logic (Any/All vs Control State)"
@@ -1530,6 +1556,19 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
           - "{{ 'leaving' in smart_occ_rising_edge }}"
+          - alias: Cleared Hold is Not On and Enabled
+            condition: and
+            conditions:
+                - alias: "Clearing Hold is enabled"
+                  condition: template
+                  value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
+                - condition: trigger
+                  id: "clear hold on"
+                - condition: template
+                  value_template: "{{ cleared_hold_entities | length > 0 }}"
+                - condition: template
+                  alias: "Ensure logic is valid (Not in a dead-zone)"
+                  value_template: "{{ not cleared_hold_is_on }}"
           # --- Logic is now covered in leaving_is_off/_on and condtion above ---
           #- condition: template
           #  alias: "Check Leaving Group logic (Inverse of Control State)"
@@ -1571,6 +1610,19 @@ conditions:
                       - alias: "Smart Occ Helper is currently EMPTY/OFF"
                         condition: template
                         value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
+          - alias: Cleared Hold is Not On and Enabled
+            condition: and
+            conditions:
+                - alias: "Clearing Hold is enabled"
+                  condition: template
+                  value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
+                - condition: trigger
+                  id: "clear hold on"
+                - condition: template
+                  value_template: "{{ cleared_hold_entities | length > 0 }}"
+                - condition: template
+                  alias: "Ensure logic is valid (Not in a dead-zone)"
+                  value_template: "{{ not cleared_hold_is_on }}"
               # Or if just holding and smart_occ is already ON
               #- condition: and
               #  conditions:
@@ -1617,6 +1669,18 @@ conditions:
                 value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+          - alias: Detected Hold Is Not On and Enabled
+            condition: and
+            conditions:
+              - alias: "Detected Hold is enabled"
+                condition: template
+                value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+              - alias: "Detected Hold Entities are not empty"
+                condition: template
+                value_template: "{{ detected_hold_entities | length > 0 }}"
+              - alias: "Ensure Hold Is Not On"
+                condition: template
+                value_template: "{{ not detected_hold_is_on }}"
       
       - alias: Entering OFF (Only if currently ON and falling edge allows it)
         condition: and
@@ -1637,6 +1701,18 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
           - "{{ 'entering' in smart_occ_falling_edge }}"
+          - alias: Detected Hold Is Not On and Enabled
+            condition: and
+            conditions:
+              - alias: "Detected Hold is enabled"
+                condition: template
+                value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+              - alias: "Detected Hold Entities are not empty"
+                condition: template
+                value_template: "{{ detected_hold_entities | length > 0 }}"
+              - alias: "Ensure Hold Is Not On"
+                condition: template
+                value_template: "{{ not detected_hold_is_on }}"
           #- condition: template
           #  alias: "Check Entering Group logic (Inverse for Falling Edge)"
           #  value_template: >
@@ -1664,6 +1740,18 @@ conditions:
               - condition: template
                 value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
           - "{{ 'leaving' in smart_occ_falling_edge }}"
+          - alias: Detected Hold Is Not On and Enabled
+            condition: and
+            conditions:
+              - alias: "Detected Hold is enabled"
+                condition: template
+                value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+              - alias: "Detected Hold Entities are not empty"
+                condition: template
+                value_template: "{{ detected_hold_entities | length > 0 }}"
+              - alias: "Ensure Hold Is Not On"
+                condition: template
+                value_template: "{{ not detected_hold_is_on }}"
           # --- Logic: Sensors must match the 'Leaving' control state ---
           #- condition: template
           #  alias: "Check Leaving Group logic (Match Control State for Falling Edge)"
@@ -1693,7 +1781,9 @@ conditions:
       - alias: Cleared Hold ON (Only if currently ON or can trigger)
         condition: and
         conditions:
-          - "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
+          - alias: "Clearing Hold is enabled"
+            condition: template
+            value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
           - condition: trigger
             id: "clear hold on"
           - condition: template
@@ -1714,6 +1804,18 @@ conditions:
                         value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
                       - condition: template
                         value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+          - alias: Detected Hold Is Not On and Enabled
+            condition: and
+            conditions:
+              - alias: "Detected Hold is enabled"
+                condition: template
+                value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+              - alias: "Detected Hold Entities are not empty"
+                condition: template
+                value_template: "{{ detected_hold_entities | length > 0 }}"
+              - alias: "Ensure Hold Is Not On"
+                condition: template
+                value_template: "{{ not detected_hold_is_on }}"
               # Or if just holding and smart_occ is already OFF
               #- condition: and
               #  conditions:
