@@ -1,7 +1,7 @@
 blueprint:
   name: "💠 Smart Area Occupancy"
   description: >
-    **Version: 0.99**
+    **Version: 0.97**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
