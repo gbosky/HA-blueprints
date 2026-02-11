@@ -1544,7 +1544,7 @@ conditions:
         conditions:
           - alias: "Detected Hold is enabled"
             condition: template
-            value template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+            value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
           - alias: "Detected Hold On is the triggered"
             condition: trigger
             id: "detected hold on"
