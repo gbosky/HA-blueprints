@@ -1542,26 +1542,34 @@ conditions:
       - alias: Detected Hold ON (Only if currently OFF or can trigger)
         condition: and
         conditions:
-          - "{{ 'detected_hold_enabled' in use_detected_hold }}"
-          - condition: trigger
+          - alias: "Detected Hold is enabled"
+            condition: template
+            value template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+          - alias: "Detected Hold On is the triggered"
+            condition: trigger
             id: "detected hold on"
-          - condition: template
+          - alias: "Detected Hold Entities are not empty"
+            condition: template
             value_template: "{{ detected_hold_entities | length > 0 }}"
-          - condition: template
-            alias: "Ensure logic is valid (Not in a dead-zone)"
+          - alias: "Ensure logic is valid (Not in a dead-zone)"
+            condition: template
             value_template: "{{ detected_hold_is_on and not detected_hold_is_off }}"
           - condition: or
             conditions:
               # Can trigger if set to rising_edge mode
               - condition: and
                 conditions:
-                  - condition: template
+                  - alias: "Detected Hold is set to Trigger and Hold"
+                    condition: template
                     value_template: "{{ smart_occ_detected_hold_rising_edge == 'trigger_and_hold' }}"
-                  - condition: and
+                  - alias: "Smart Occ Sensor is empty/off AND Smart Occ Helper is empty/off"
+                    condition: and
                     conditions:
-                      - condition: template
+                      - alias: "Smart Occ Sensor is currently EMPTY/OFF"
+                        condition: template
                         value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
-                      - condition: template
+                      - alias: "Smart Occ Helper is currently EMPTY/OFF"
+                        condition: template
                         value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
               # Or if just holding and smart_occ is already ON
               #- condition: and
@@ -1664,7 +1672,7 @@ conditions:
           #    {% set total = leaving_sensors | length %}
           #    {{ (leaving_type_off == 'any' and matching > 0) or (leaving_type_off == 'all' and matching == total) }}
 
-      - alias: Detected Hold OFF / Relased (Only if currently ON or can trigger)
+      - alias: Detected Hold OFF / Released (Only if currently ON or can trigger)
         condition: and
         conditions:
           - "{{ 'detected_hold_enabled' in use_detected_hold }}"
