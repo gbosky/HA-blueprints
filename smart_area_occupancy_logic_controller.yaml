@@ -1,7 +1,7 @@
 blueprint:
   name: "💠 Smart Area Occupancy"
   description: >
-    **Version: 0.99**
+    **Version: 1.0**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -15,37 +15,76 @@ blueprint:
 
     ## 🎯 Key Features
 
-
     - **Multi-Sensor Occupancy Logic** - Combine a single base occupancy sensor with entering/leaving sensors to create smarter area occupancy logic
 
     - **Occupancy Holds** - Lock occupancy in detected or cleared states independent of a single sensor
 
-    - **Flexible Detection Types** - Choose ANY/ALL conditions for groups of sensors to determine exactly when entering/leaving/hold conditions cause area occupancy state changes
+    - **Flexible Detection Types** - Choose ANY/ALL conditions for groups of sensors to determine exactly when entering/leaving/hold conditions cause smart area occupancy state changes
 
     - **Disable Safeguards** - Pause automation entirely with fallback states or disable light control only, so a single automation can maintain area occupancy and/or light control
 
     - **State Tracking** - Optional Boolean helper and Template Sensor for monitoring "smart" occupancy state outside of the automation
 
-    - **Template Sensor Integration** - Push occupancy state to custom sensor via event in case you want to build your own binary sensor
+    - **Template Sensor Integration** - Push occupancy state to custom sensor via event in case you want to build your own binary sensor, with optional attributes to track which conditions are active and caused the current state of smart area occupancy
 
     - **Light Control** - Built-in simple light on/off control to follow logical calculated smart occupancy state, with sun elevation and illuminance thresholds
 
+    - **Advanced Scripts** - If using a script for light control, you can provide seperate off scripts or use field keys to determine how to handle light control based on smart area occupancy state or any of its contributing attributes.
+
+
     ## 📊 Occupancy State Priority
 
+    When determining Smart Occupancy state, the automation evaluates conditions as a prioritized, gated state machine:
 
-    When determining smart occupancy state, the automation checks conditions in this order:
+    1. **Automation Control Override (Highest Priority)**  
+      If automation control is enabled and the configured control entity matches the defined state →  
+      **Smart Occupancy is forced OFF/Fallback State if provided.**  
+      No further evaluation occurs.
+
+    2. **Hold Logic (Trigger & Hold Overrides)**  
+      If a hold condition is active and configured as `trigger_and_hold`:
+      - **Detected Hold Rising Edge** → Force **ON**
+      - **Cleared Hold Falling Edge** → Force **OFF**  
+
+      Regardless if hold configured as `hold` or `trigger_and_hold`, if the hold states are active they will override all edge logic and must be cleared before normal evaluation resumes.
+
+    3. **Rising / Falling Edge Evaluation (Gated Edge Engine)**  
+      Rising and falling selections are evaluated independently using configured `ANY` or `ALL` logic.  
+      Only enabled and configured selections (`base_occ`, `entering`, `leaving`) are counted.
+
+      A state transition is allowed only when:
+
+      ```
+      gate_open = rising_result != falling_result
+      ```
+
+      - If only one edge evaluates true → Apply that transition.
+      - If both edges evaluate true OR both evaluate false → No transition occurs
+
+      This prevents conflicting or unstable state changes.
+
+    4. **All-Clear Failsafe**  
+      If:
+      - No holds are active  
+      - Rising edge evaluates false  
+      - Falling edge evaluates false
+      - Base occupancy sensor is off
+
+      → Smart Occupancy is forced **OFF**.  
+
+      This prevents unintended ON latching when no condition is asserting occupancy.
+
+    5. **Conflict Fallback (Latched State Preservation)**  
+      If both edges evaluate true →  
+      **Maintain the calculated Smart Occupancy State/Base Occupancy sensor state as conflict protection.**
 
 
-    1. **Is Automation Disabled?** → Use fallback state
+    ### 🧠 Behavioral Model
 
-    2. **Clear Hold Active?** → Force occupancy OFF
-
-    3. **Detected Hold Active OR Entering Triggered?** → Force occupancy ON
-
-    4. **Leaving Triggered?** → Set occupancy OFF
-
-    5. **Otherwise** → Use base occupancy sensor state
-
+    - Smart Occupancy does **not directly mirror the base occupancy sensor**.
+    - Base occupancy participates only as a selectable condition within edge evaluation.
+    - State transitions occur only when its logic determines its only a rising edge or falling edge. Both cant be true.
+    - The system behaves as a deterministic, priority-driven state machine with built-in conflict protection.
 
     ## 🚪 Occupancy Detection Types
 
@@ -58,28 +97,111 @@ blueprint:
 
     | **Entering Zone** | Triggers detected state | Door sensors, entry motion zones, etc. |
 
-    | **Leaving Zone** | Triggers cleared state | home away sensors, specific zone motion, etc. |
+    | **Leaving Zone** | Triggers cleared state | home/away sensors, specific zone motion, etc. |
 
     | **Detected Hold** | Locks occupancy ON | Important activity sensors, helpers, etc. |
 
-    | **Cleared Hold** | Locks occupancy OFF | Away mode, sleep mode, do-not-disturb |
+    | **Cleared Hold** | Locks occupancy OFF | Away mode, sleep mode, do-not-disturb, etc. |
 
 
-    ## 💡 Light Control Conditions
+    ## 💡 Light Control
+
+    Before executing any light actions, the automation evaluates a set of gating conditions.  
+    Lights will only respond when all applicable conditions below are satisfied:
+
+    - **Smart Occupancy State** — Light control follows the calculated Smart Occupancy result from this automation.
+
+    - **Light Control Skip (Optional)** — If a skip/disable entity is provided and active, light control is bypassed while Smart Occupancy logic continues to run.
+
+    - **Illuminance Threshold (Optional)** — If configured, lights will only turn on when measured illuminance is below the defined threshold.
+
+    - **Sun Elevation Threshold (Optional)** — If enabled, lights will only turn on when the sun elevation is below the configured value.
+
+    These conditions act as environmental and manual safeguards to prevent unnecessary light activation while preserving Smart Occupancy state tracking.
 
 
-    Lights will only turn ON/OFF based on the following conditions:
+    ## 🧩 Script Integration (Advanced Light Control)
 
-    - Smart occupancy state ("smart" occupancy is the logic of this automation)
+    Instead of using built-in light actions, you may provide one or more scripts to handle light control or other logic externally.
 
-    - Light Control Skip is **NOT enabled** (optional if provided)
-
-    - Illuminance thresholds (optional if provided)
-
-    - Sun elevation thresholds (optional if enabled)
+    When scripts are configured, this automation will call each script and optionally pass structured data representing the full Smart Occupancy state.
 
 
-    ## 🎛️ (Optional) Template Sensor
+    ### 🔑 Script Field Key
+
+    If **Script Field Key – Smart Occupancy State** is provided:
+
+    - The value of Smart Occupancy (`on` / `off`) will be passed to the script using the specified field name.
+    - The field name must match a defined field inside your script.
+
+    Example:
+
+    If your script defines:
+
+    ```
+    fields:
+      smart_occupancy:
+        description: Smart occupancy state
+    ```
+
+    Then set:
+
+    ```
+    script_field_key: smart_occupancy
+    ```
+
+    The script will receive:
+
+    ```
+    smart_occupancy: "on"   (or "off")
+    ```
+
+    If left empty:
+
+    - The automation will call the script using `script.turn_on`
+    - No Smart Occupancy state field will be passed
+    - Only the additional diagnostic attributes (below) will be included
+
+    ---
+
+
+    ### 📦 Data Passed to Scripts
+
+    Each script call includes the following data:
+
+    - `smart_occupancy_state` → Final calculated Smart Occupancy state (`on` / `off`)
+    - `smart_occupancy_rising_trigger` → Result of rising edge evaluation (true/false)
+    - `smart_occupancy_falling_trigger` → Result of falling edge evaluation (true/false)
+    - `base_occupancy_state` → Current state of base occupancy sensor (`on` / `off`)
+    - `entering_is_on` / `entering_is_off` (true/false)
+    - `leaving_is_on` / `leaving_is_off` (true/false)
+    - `detected_hold_is_on` / `detected_hold_is_off` (true/false)
+    - `cleared_hold_is_on` / `cleared_hold_is_off` (true/false)
+    - `last_triggered_by` → Trigger ID that caused the automation to run
+
+    This allows your script to make advanced decisions based on:
+
+    - Why occupancy changed
+    - Which condition asserted
+    - Whether the transition was rising or falling
+    - Whether a hold was active
+
+    ---
+
+    ### 🧠 How This Enables Advanced Logic
+
+    Because full evaluation data is passed to the script, you can:
+
+    - Use one script for both ON and OFF handling
+    - Branch inside the script based on Smart Occupancy state
+    - React differently to rising vs falling transitions
+    - Override behavior when specific holds are active
+    - Build complex scene or lighting behavior outside the blueprint
+
+    This design keeps the Smart Occupancy engine separate from action logic, making the blueprint modular and extensible.
+
+
+    ## 🎛️ Template Sensor Configuration
 
 
     Optionally, this automation can push events to a custom sensor to monitor the state of the automation.
@@ -251,39 +373,46 @@ blueprint:
               - scene
               - script
 
-    off_behavior:
-      name: Off Behavior (Scripts ONLY)
-      description: >
-        If using a script above, and dont want to use a separate off script below, select how to handle the off behavior. If no off target script is provided, the off behavior will skip and do nothing.
-      default: "repeat"
-      selector:
-        select:
-          options:
-            - label: "Repeat 'On' Target Script"
-              value: "repeat"
-            - label: "Use 'Off' Target Script Provided Below" 
-              value: "off"
+    # --- Advanced Light Controls ---
+    advanced_light_controls:
+      name: Advanced Light Controls (Scripts / Scenes)
+      icon: mdi:lightbulb-auto-outline
+      collapsed: true
+      input:
 
-    script_field_key:
-      name: Script Field Key - Smart Occupancy State
-      description: >
-        The field name used in a provided script that will represent the on/off state of the "smart" occupancy logic. (e.g., smart_occupancy, occupancy_detected).
-        Leave empty to use script.turn_on without any data, if used ensure it matches the field key of your script that will represent the smart occupancy state.
-      default: ""
-      selector:
-        text:
+        off_behavior:
+          name: Off Behavior (Scripts ONLY)
+          description: >
+            If using a script above, and dont want to use a separate off script below, select how to handle the off behavior. If no off target script is provided, the off behavior will skip and do nothing.
+          default: "repeat"
+          selector:
+            select:
+              options:
+                - label: "Repeat 'On' Target Script"
+                  value: "repeat"
+                - label: "Use 'Off' Target Script Provided Below" 
+                  value: "off"
 
-    off_light_target:
-      name: Off Light Scene / Script (Optional)
-      description: >
-        If using a scene or script above, provide a follow up scene or script to do when turning off the light / when calculated smart occupancy cleared.
-      default: []
-      selector:
-        target:
-          entity:
-            domain:
-              - scene
-              - script
+        script_field_key:
+          name: Script Field Key - Smart Occupancy State
+          description: >
+            The field name used in a provided script that will represent the on/off state of the "smart" occupancy logic. (e.g., smart_occupancy, occupancy_detected).
+            Leave empty to use script.turn_on without any data, if used ensure it matches the field key of your script that will represent the smart occupancy state.
+          default: ""
+          selector:
+            text:
+
+        off_light_target:
+          name: Off Scene / Script (Optional)
+          description: >
+            If using a scene or script above, provide a follow up scene or script to do when turning off the light / when calculated smart occupancy cleared.
+          default: []
+          selector:
+            target:
+              entity:
+                domain:
+                  - scene
+                  - script
 
     # --- Automation Controls ---
     automation_controls:
