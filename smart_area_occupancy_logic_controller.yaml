@@ -2107,11 +2107,17 @@ actions:
                   - condition: template
                     value_template: "{{ script_entities | length > 0 }}"
                 sequence:
-                  - action: script.turn_on
-                    target:
-                      entity_id: "{{ script_entities }}"
-                    data:
-                      occupancy_detected: "{{ calc_smart_occ }}"
+                  - repeat:
+                      for_each: '{{ script_entities }}'
+                      sequence:
+                        - action: '{{ repeat.item }}'
+                          data:
+                            occupancy_detected: '{{ calc_smart_occ }}'
+                  #- action: script.turn_on
+                  #  target:
+                  #    entity_id: "{{ script_entities }}"
+                  #  data:
+                  #    occupancy_detected: "{{ calc_smart_occ }}"
 
       # ============================================================================
       # TURN LIGHTS OFF - When calculated smart occupancy is OFF
@@ -2156,10 +2162,16 @@ actions:
                   - condition: template
                     value_template: "{{ off_script_entities | length > 0 }}"
                 sequence:
-                  - action: script.turn_on
-                    target:
-                      entity_id: "{{ off_script_entities }}"
-                    data:
-                      occupancy_detected: "{{ calc_smart_occ }}"
+                  - repeat:
+                      for_each: '{{ off_script_entities }}'
+                      sequence:
+                        - action: '{{ repeat.item }}'
+                          data:
+                            occupancy_detected: '{{ calc_smart_occ }}'
+                  #- action: script.turn_on
+                  #  target:
+                  #    entity_id: "{{ off_script_entities }}"
+                  #  data:
+                  #    occupancy_detected: "{{ calc_smart_occ }}"
 
 mode: single
