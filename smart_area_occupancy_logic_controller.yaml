@@ -2124,7 +2124,20 @@ actions:
                       sequence:
                         - action: '{{ repeat.item }}'
                           data:
-                            occupancy_detected: '{{ calc_smart_occ }}'
+                            "{{ final_field_name }}": "{{ calc_smart_occ }}"
+                            smart_occupancy_state: "{{ calc_smart_occ }}"
+                            smart_occupancy_rising_trigger: "{{ smart_occ_rising_edge_should_turn_on }}"
+                            smart_occupancy_falling_trigger: "{{ smart_occ_falling_edge_should_turn_off }}"
+                            base_occupancy_state: "{{ states(base_occ) }}"
+                            entering_is_on: "{{ entering_is_on }}"
+                            entering_is_off: "{{ entering_is_off }}"
+                            leaving_is_on: "{{ leaving_is_on }}"
+                            leaving_is_off: "{{ leaving_is_off }}"
+                            detected_hold_is_on: "{{ detected_hold_is_on }}"
+                            detected_hold_is_off: "{{ detected_hold_is_off }}"
+                            cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                            cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                            last_triggered_by: "{{ trigger.id }}"
                   #- action: script.turn_on
                   #  target:
                   #    entity_id: "{{ script_entities }}"
