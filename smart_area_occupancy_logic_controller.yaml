@@ -264,6 +264,15 @@ blueprint:
             - label: "Use 'Off' Target Script Provided Below" 
               value: "off"
 
+    script_field_key:
+      name: Script Field Key - Smart Occupancy State
+      description: >
+        The field name used in a provided script that will represent the on/off state of the "smart" occupancy logic. (e.g., smart_occupancy, occupancy_detected).
+        Leave empty to use script.turn_on without any data, if used ensure it matches the field key of your script that will represent the smart occupancy state.
+      default: ""
+      selector:
+        text:
+
     off_light_target:
       name: Off Light Scene / Script (Optional)
       description: >
@@ -1018,6 +1027,7 @@ variables:
   light_target: !input light_target
   off_behavior: !input off_behavior
   off_light_target: !input off_light_target
+  script_field_key: !input script_field_key
   # Split domains for light targets
 
   light_entities: >
@@ -1061,6 +1071,8 @@ variables:
     {% else %}
       []
     {% endif %}
+
+  final_field_name: "{{ script_field_key if script_field_key != '' else 'state' }}"
 
   # --- Automation Control ---
   use_automation_control: !input use_automation_control
@@ -2167,7 +2179,22 @@ actions:
                       sequence:
                         - action: '{{ repeat.item }}'
                           data:
-                            occupancy_detected: '{{ calc_smart_occ }}'
+                            "{{ final_field_name }}": "{{ calc_smart_occ }}"
+                            smart_occupancy_state: "{{ calc_smart_occ }}"
+                            smart_occupancy_rising_trigger: "{{ smart_occ_rising_edge_should_turn_on }}"
+                            smart_occupancy_falling_trigger: "{{ smart_occ_falling_edge_should_turn_off }}"
+                            base_occupancy_state: "{{ states(base_occ) }}"
+                            entering_is_on: "{{ entering_is_on }}"
+                            entering_is_off: "{{ entering_is_off }}"
+                            leaving_is_on: "{{ leaving_is_on }}"
+                            leaving_is_off: "{{ leaving_is_off }}"
+                            detected_hold_is_on: "{{ detected_hold_is_on }}"
+                            detected_hold_is_off: "{{ detected_hold_is_off }}"
+                            cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                            cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                            last_triggered_by: "{{ trigger.id }}"
+                  #data: >
+                  # {{ {data_field_name: calc_smart_occ} }}
                   #- action: script.turn_on
                   #  target:
                   #    entity_id: "{{ off_script_entities }}"
