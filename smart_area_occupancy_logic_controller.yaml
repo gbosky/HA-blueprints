@@ -1,7 +1,7 @@
 blueprint:
   name: "💠 Smart Area Occupancy"
   description: >
-    **Version: 1.0**
+    **Version: 1.1**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -2178,10 +2178,10 @@ actions:
                     condition: template
                     value_template: "{{ use_sun == 'sun_disabled' }}"
                   - alias: Sun Elevation Conditions Met
-                    condition: and
+                    condition: or
                     conditions:
                       - alias: If sun is setting and below threshold
-                        condition: or
+                        condition: and
                         conditions:
                           - condition: state
                             entity_id: sun.sun
@@ -2192,7 +2192,7 @@ actions:
                             attribute: elevation
                             below: !input sun_falling
                       - alias: If sun is rising and below threshold
-                        condition: or
+                        condition: and
                         conditions:
                           - condition: state
                             entity_id: sun.sun
@@ -2274,13 +2274,64 @@ actions:
                   #    occupancy_detected: "{{ calc_smart_occ }}"
 
       # ============================================================================
-      # TURN LIGHTS OFF - When calculated smart occupancy is OFF
+      # TURN LIGHTS OFF - Smart Occupancy OFF or Environmental Override
       # ============================================================================
-      - alias: "Light Off - Follow Smart Occupancy"
+      - alias: "Light Off - Follow Smart Occupancy or Environmental Override"
         if:
-          - condition: template
-            alias: "Calculated state is OFF"
-            value_template: "{{ calc_smart_occ == 'off' }}"
+          - condition: or
+            conditions:
+              # Reason 1: Occupancy is off
+              - condition: template
+                alias: "Calculated state is OFF"
+                value_template: "{{ calc_smart_occ == 'off' }}"
+              
+              # Reason 2: Environmental override (too bright)
+              - condition: and
+                conditions:
+                  # --- SUN SECTION ---
+                  - alias: "Sun Logic (Pass if disabled OR conditions met)"
+                    condition: or
+                    conditions:
+                      - alias: Use Sun is disabled
+                        condition: template
+                        value_template: "{{ use_sun == 'sun_disabled' }}"
+                      - alias: Sun Elevation Conditions Met (Too Bright)
+                        condition: or
+                        conditions:
+                          - alias: Sun is rising and above threshold
+                            condition: and
+                            conditions:
+                              - condition: state
+                                entity_id: sun.sun
+                                attribute: rising
+                                state: true
+                              - condition: numeric_state
+                                entity_id: sun.sun
+                                attribute: elevation
+                                above: !input sun_rising
+                          - alias: Sun is setting and above threshold
+                            condition: and
+                            conditions:
+                              - condition: state
+                                entity_id: sun.sun
+                                attribute: rising
+                                state: false
+                              - condition: numeric_state
+                                entity_id: sun.sun
+                                attribute: elevation
+                                above: !input sun_falling
+
+                  # --- LUX SECTION ---
+                  - alias: "Lux Logic (Pass if disabled OR conditions met)"
+                    condition: or
+                    conditions:
+                      - alias: Use Lux is disabled
+                        condition: template
+                        value_template: "{{ use_lux == 'use_lux_disabled' or lux_sensor | length == 0 }}"
+                      - alias: Illuminance is above threshold
+                        condition: numeric_state
+                        entity_id: !input lux_sensor
+                        above: !input lux_high_val
           
         then:
           # Turn on lights
