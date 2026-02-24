@@ -2163,8 +2163,8 @@ actions:
       # ============================================================================
       - alias: "Light On - Follow Smart Occupancy"
         if:
-          - condition: template
-            alias: "Calculated state is ON"
+          - alias: "Calculated state is ON"
+            condition: template
             value_template: "{{ calc_smart_occ == 'on' }}"
           
           # Environmental conditions for turning ON
@@ -2274,9 +2274,9 @@ actions:
                   #    occupancy_detected: "{{ calc_smart_occ }}"
 
       # ============================================================================
-      # TURN LIGHTS OFF - Smart Occupancy OFF or Environmental Override
+      # TURN LIGHTS OFF - Smart Occupancy OFF or Environmental Trigger
       # ============================================================================
-      - alias: "Light Off - Follow Smart Occupancy or Environmental Override"
+      - alias: "Light Off - Follow Smart Occupancy or Environmental Trigger"
         if:
           - condition: or
             conditions:
@@ -2288,6 +2288,17 @@ actions:
               # Reason 2: Environmental override (too bright)
               - condition: and
                 conditions:
+                  # --- OCCUPANCY ON ---
+                  - alias: "Calculated state is ON"
+                    condition: template
+                    value_template: "{{ calc_smart_occ == 'on' }}"
+                  
+                  # --- Triggered by Environment Conditions ---
+                  - condition: trigger
+                    id:
+                      - sun rising threshold
+                      - illuminance high limit
+
                   # --- SUN SECTION ---
                   - alias: "Sun Logic (Pass if disabled OR conditions met)"
                     condition: or
