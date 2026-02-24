@@ -1,0 +1,371 @@
+blueprint:
+  name: "Smart Area Occupancy - Lighting Script 💡🕹️"
+  description: >
+    **Version: 1.0**
+
+    This script is a companion to the **Smart Area Occupancy** blueprint.
+    It provides a structured building block for advanced lighting or automation
+    logic based on the full occupancy state data passed from the Smart Area
+    Occupancy automation.
+
+    Rather than relying on a single on/off light action, this script gives you
+    granular control over exactly what happens at each stage of occupancy —
+    turn on a specific scene when entering, dim lights during a detected hold,
+    or only turn off lights on a leaving condition instead of when occupancy
+    clears entirely.
+
+
+    <details>
+    <summary><b>📖 Full Documentation</b></summary>
+
+
+    ## 🎯 Purpose
+
+    The Smart Area Occupancy blueprint calculates a rich occupancy state and,
+    when a script is provided, passes detailed field data to it for finer
+    control over lighting and automation logic. This companion script is
+    designed to receive that data and provide a ready-made branching structure
+    to act on any or all of those conditions independently.
+
+    Each occupancy condition has its own pre-built block with a default testing
+    notification that only fires when that condition is true. Replace the stub
+    actions with your own and delete the blocks you don't need.
+
+    This script blueprint has no inputs and is intended to be customized by
+    taking control. Taking control will break the link to the blueprint template
+    but gives you full freedom to choose which data points to use and what
+    actions to take with them.
+
+
+    ## 🧩 How It Works
+
+    When called by the Smart Area Occupancy automation, this script receives
+    the following fields:
+
+    - `smart_occupancy_state` → Final calculated Smart Occupancy state (`on` / `off`)
+
+    - `custom_field_key` → Optional custom key that also represents Smart Occupancy state (`on` / `off`)
+
+    - `smart_occupancy_rising_trigger` → Rising edge evaluation result (`true` / `false`)
+
+    - `smart_occupancy_falling_trigger` → Falling edge evaluation result (`true` / `false`)
+
+    - `entering_is_on` / `entering_is_off` → Entering zone condition state (`true` / `false`)
+
+    - `leaving_is_on` / `leaving_is_off` → Leaving zone condition state (`true` / `false`)
+
+    - `detected_hold_is_on` / `detected_hold_is_off` → Detected hold condition state (`true` / `false`)
+
+    - `cleared_hold_is_on` / `cleared_hold_is_off` → Cleared hold condition state (`true` / `false`)
+
+    - `last_triggered_by` → Trigger ID that caused the automation to run
+
+
+    Each field maps directly to a condition block in the script sequence.
+    Blocks are evaluated independently — multiple blocks can fire in a single
+    run if multiple conditions are true simultaneously.
+
+
+    ## 💡 Example Use Cases
+
+    | Goal | Block to Use |
+
+    |------|-------------|
+
+    | Turn on a bright scene when someone enters | `Entering Is On` |
+
+    | Dim lights while area is held occupied | `Detected Hold Is On` |
+
+    | Only turn off lights when leaving, not on cleared occupancy | `Leaving Is On` |
+
+    | Run a goodbye scene when occupancy fully clears | `Smart Occupancy State — Off` |
+
+    | Trigger different scenes for rising vs falling transitions | `Smart Occupancy Rising Trigger` / `Smart Occupancy Falling Trigger` |
+
+    
+    ## 🛠️ Getting Started
+
+    1. Click the **3 dots → Take Control** in the script editor to unlock editing
+
+    2. Leave the script unedited to test triggering with debug notifications, or start replacing stub actions immediately
+
+    3. Connect it to your Smart Area Occupancy automation via the **Script** input
+
+    4. If using a custom field key, set the **Script Field Key** in the Smart Area Occupancy blueprint to match
+
+    5. Replace stub `persistent_notification` actions with your own light or automation actions
+
+    6. Delete any condition blocks you don't need
+    
+    7. Remove the **Debug — All Field Values** block when you're done testing
+
+
+    ## 🐛 Debug Notifications
+
+    When left unmodified, this script fires a single debug notification on
+    every run showing the full state of all fields passed from the occupancy
+    automation. This is useful for verifying your automation is passing data
+    correctly before building out your actions.
+
+    Each condition block also fires its own notification when that condition
+    is true, so you can confirm which blocks are being triggered in real time.
+
+    **Remove the debug block and all stub notifications once your actions are in place.**
+
+    </details>
+    
+  domain: script
+
+fields:
+  custom_script_field_key:
+    description: "Script Field Key - Edit key to match field name if using a custom key in your automation"
+    example: "smart_occupancy"
+    required: false
+
+  smart_occupancy_state:
+    description: "Calculated Smart Occupancy State - On/Off"
+    example: "on"
+    required: false
+
+  smart_occupancy_rising_trigger:
+    description: "Occupancy detected — rising edge"
+    example: "true"
+    required: false
+
+  smart_occupancy_falling_trigger:
+    description: "Occupancy cleared — falling edge"
+    example: "false"
+    required: false
+
+  entering_is_on:
+    description: "Lights are on during entering phase"
+    example: "true"
+    required: false
+
+  entering_is_off:
+    description: "Lights are off during entering phase"
+    example: "false"
+    required: false
+
+  leaving_is_on:
+    description: "Lights are on during leaving phase"
+    example: "false"
+    required: false
+
+  leaving_is_off:
+    description: "Lights are off during leaving phase"
+    example: "true"
+    required: false
+
+  detected_hold_is_on:
+    description: "Lights on during detected/hold phase"
+    example: "true"
+    required: false
+
+  detected_hold_is_off:
+    description: "Lights off during detected/hold phase"
+    example: "false"
+    required: false
+
+  cleared_hold_is_on:
+    description: "Lights on during cleared/hold phase"
+    example: "false"
+    required: false
+
+  cleared_hold_is_off:
+    description: "Lights off during cleared/hold phase"
+    example: "true"
+    required: false
+
+  last_triggered_by:
+    description: "Trigger ID that last fired this script"
+    example: "motion_sensor"
+    required: false
+
+sequence:
+  # Always fires — full state dump for debugging
+  - alias: "Debug — All Field Values"
+    action: persistent_notification.create
+    data:
+      title: "Occupancy Script Debug"
+      notification_id: "occupancy_debug"
+      message: >
+        Last Triggered By:                  {{ last_triggered_by | default('not provided') }}
+
+        Custom Script Field Key:            {{ custom_script_field_key | default('not provided') }}
+
+
+        Smart Occupancy State:              {{ smart_occupancy_state | default('not provided') }}
+
+        Smart Occupancy Rising Trigger:     {{ smart_occupancy_rising_trigger | default('not provided') }}
+
+        Smart Occupancy Falling Trigger:    {{ smart_occupancy_falling_trigger | default('not provided') }}
+
+
+        Entering Is On:                     {{ entering_is_on | default('not provided') }}
+
+        Entering Is Off:                    {{ entering_is_off | default('not provided') }}
+
+
+        Leaving Is On:                      {{ leaving_is_on | default('not provided') }}
+
+        Leaving Is Off:                     {{ leaving_is_off | default('not provided') }}
+
+
+        Detected Hold Is On:                {{ detected_hold_is_on | default('not provided') }}
+
+        Detected Hold Is Off:               {{ detected_hold_is_off | default('not provided') }}
+
+
+        Cleared Hold Is On:                 {{ cleared_hold_is_on | default('not provided') }}
+
+        Cleared Hold Is Off:                {{ cleared_hold_is_off | default('not provided') }}
+
+
+  # Each block below only runs when its field matches
+  - alias: "Smart Occupancy State — On"
+    if:
+      - condition: template
+        value_template: "{{ smart_occupancy_state | default('off') | string | lower == 'on' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Smart Occupancy State is On"
+        action: persistent_notification.create
+        data:
+          title: "Smart Occupancy State — On"
+          notification_id: "occupancy_state_on"
+          message: "Smart Occupancy State is on — replace this with your actions"
+
+  - alias: "Smart Occupancy State — Off"
+    if:
+      - condition: template
+        value_template: "{{ smart_occupancy_state | default('off') | string | lower == 'off' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Smart Occupancy State is Off"
+        action: persistent_notification.create
+        data:
+          title: "Smart Occupancy State — Off"
+          notification_id: "occupancy_state_off"
+          message: "Smart Occupancy State is off — replace this with your actions"
+
+  - alias: "Smart Occupancy Rising Trigger"
+    if:
+      - condition: template
+        value_template: "{{ smart_occupancy_rising_trigger | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Smart Occupancy Rising Trigger"
+        action: persistent_notification.create
+        data:
+          title: "Smart Occupancy Rising Trigger"
+          notification_id: "occupancy_rising_trigger"
+          message: "Smart Occupancy Rising Trigger is true — replace this with your actions"
+
+  - alias: "Smart Occupancy Falling Trigger"
+    if:
+      - condition: template
+        value_template: "{{ smart_occupancy_falling_trigger | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Smart Occupancy Falling Trigger"
+        action: persistent_notification.create
+        data:
+          title: "Smart Occupancy Falling Trigger"
+          notification_id: "occupancy_falling_trigger"
+          message: "Smart Occupancy Falling Trigger is true — replace this with your actions"
+
+  - alias: "Entering Is On"
+    if:
+      - condition: template
+        value_template: "{{ entering_is_on | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Entering Is On"
+        action: persistent_notification.create
+        data:
+          title: "Entering Is On"
+          notification_id: "occupancy_entering_is_on"
+          message: "Entering Is On is true — replace this with your actions"
+
+  - alias: "Entering Is Off"
+    if:
+      - condition: template
+        value_template: "{{ entering_is_off | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Entering Is Off"
+        action: persistent_notification.create
+        data:
+          title: "Entering Is Off"
+          notification_id: "occupancy_entering_is_off"
+          message: "Entering Is Off is true — replace this with your actions"
+
+  - alias: "Leaving Is On"
+    if:
+      - condition: template
+        value_template: "{{ leaving_is_on | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Leaving Is On"
+        action: persistent_notification.create
+        data:
+          title: "Leaving Is On"
+          notification_id: "occupancy_leaving_is_on"
+          message: "Leaving Is On is true — replace this with your actions"
+
+  - alias: "Leaving Is Off"
+    if:
+      - condition: template
+        value_template: "{{ leaving_is_off | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Leaving Is Off"
+        action: persistent_notification.create
+        data:
+          title: "Leaving Is Off"
+          notification_id: "occupancy_leaving_is_off"
+          message: "Leaving Is Off is true — replace this with your actions"
+
+  - alias: "Detected Hold Is On"
+    if:
+      - condition: template
+        value_template: "{{ detected_hold_is_on | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Detected Hold Is On"
+        action: persistent_notification.create
+        data:
+          title: "Detected Hold Is On"
+          notification_id: "occupancy_detected_hold_is_on"
+          message: "Detected Hold Is On is true — replace this with your actions"
+
+  - alias: "Detected Hold Is Off"
+    if:
+      - condition: template
+        value_template: "{{ detected_hold_is_off | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Detected Hold Is Off"
+        action: persistent_notification.create
+        data:
+          title: "Detected Hold Is Off"
+          notification_id: "occupancy_detected_hold_is_off"
+          message: "Detected Hold Is Off is true — replace this with your actions"
+
+  - alias: "Cleared Hold Is On"
+    if:
+      - condition: template
+        value_template: "{{ cleared_hold_is_on | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Cleared Hold Is On"
+        action: persistent_notification.create
+        data:
+          title: "Cleared Hold Is On"
+          notification_id: "occupancy_cleared_hold_is_on"
+          message: "Cleared Hold Is On is true — replace this with your actions"
+
+  - alias: "Cleared Hold Is Off"
+    if:
+      - condition: template
+        value_template: "{{ cleared_hold_is_off | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Cleared Hold Is Off"
+        action: persistent_notification.create
+        data:
+          title: "Cleared Hold Is Off"
+          notification_id: "occupancy_cleared_hold_is_off"
+          message: "Cleared Hold Is Off is true — replace this with your actions"
+
+mode: queued
+max: 5
