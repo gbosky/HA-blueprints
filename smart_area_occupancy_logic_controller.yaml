@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.1**
+    **Version: 1.2**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -177,6 +177,7 @@ blueprint:
     - `leaving_is_on` / `leaving_is_off` (true/false)
     - `detected_hold_is_on` / `detected_hold_is_off` (true/false)
     - `cleared_hold_is_on` / `cleared_hold_is_off` (true/false)
+    - `light_skip_is_on' (true/false)
     - `last_triggered_by` → Trigger ID that caused the automation to run
 
     This allows your script to make advanced decisions based on:
@@ -470,6 +471,12 @@ blueprint:
                 - label: "Unavailable"
                   value: "unavailable"
 
+    # --- Light Control Skip ---
+    light_skip_section:
+      name: Light Control Skip
+      icon: mdi:lightbulb-off-outline
+      collapsed: true
+      input:
         use_light_skip:
           name: Light Control Skip
           description: >
@@ -490,7 +497,11 @@ blueprint:
           default: []
           selector:
             entity:
-              multiple: false
+              multiple: true
+          default: []
+          selector:
+            entity:
+              multiple: true
 
         light_skip_state:
           name: Disable Light Control Entity Activation State
@@ -504,6 +515,68 @@ blueprint:
                   value: "on"
                 - label: "Off"
                   value: "off"
+
+        light_skip_triggered_on_state:
+          name: Light Skip Triggered - On State
+          description: >
+            Select the state the light entity or script will fall to when the light skip condtion is triggered.
+            Smart Occupancy will allow the light to follow the state if manual control was changed at time of skipping. Follow Smart Occupancy will also follow the environment conditions.
+          default: "current"
+          selector:
+            select:
+              options:
+                - label: "Follow Smart Occupancy"
+                  value: "smart_occ"
+                - label: "Current State"
+                  value: "current"
+                - label: "On"
+                  value: "on"
+                - label: "Off"
+                  value: "off"
+
+        light_skip_triggered_off_state:
+          name: Light Skip Released State
+          description: >
+            Select what happens to lights when the light skip condition is released (turns off).
+            Smart Occupancy will immediately re-apply the current calculated occupancy state. Follow Smart Occupancy will also follow the environment conditions.
+          default: "smart_occ"
+          selector:
+            select:
+              options:
+                - label: "Follow Smart Occupancy"
+                  value: "smart_occ"
+                - label: "Current State"
+                  value: "current"
+                - label: "On"
+                  value: "on"
+                - label: "Off"
+                  value: "off"
+
+        light_skip_type_on:
+          name: Light Skip Detection Type - On Trigger
+          description: >
+            For the light skip ON trigger, choose between Any or All sensors being in the detected state
+          default: "any"
+          selector:
+            select:
+              options:
+                - label: "Any"
+                  value: "any"
+                - label: "All"
+                  value: "all"
+        
+        light_skip_type_off:
+          name: Light Skip Detection Type - Off Trigger
+          description: >
+            For the light skip OFF trigger, choose between Any or All sensors being in the detected state
+          default: "all"
+          selector:
+            select:
+              options:
+                - label: "Any"
+                  value: "any"
+                - label: "All"
+                  value: "all"
 
     # --- Advance Logic Controls ---
     logic_controls:
@@ -600,6 +673,21 @@ blueprint:
                   value: "trigger_and_hold"
                 - label: "Hold Clear Only (Prevent Detected)"
                   value: "hold"
+
+        smart_occ_hold_priority:
+          name: Smart Occupancy Hold Priority
+          description: >
+            Choose which hold will take priority when both are active. The first hold will take priority and the second will be ignored if chosen.
+          default: "first"
+          selector:
+            select:
+              options:
+                - label: "First"
+                  value: "first"
+                - label: "Detected"
+                  value: "detected"
+                - label: "Cleared"
+                  value: "cleared"
 
         #smart_occ_rising_edge_delay:
         #   name: Smart Occupancy Rising Edge Delay Time
@@ -1211,6 +1299,28 @@ variables:
   use_light_skip: !input use_light_skip
   light_skip_entity: !input light_skip_entity
   light_skip_state: !input light_skip_state
+  light_skip_triggered_on_state: !input light_skip_triggered_on_state
+  light_skip_triggered_off_state: !input light_skip_triggered_off_state
+  light_skip_type_on: !input light_skip_type_on
+  light_skip_type_off: !input light_skip_type_off
+
+  light_skip_is_on: >
+    {% if use_light_skip != 'light_control_skip_enabled' or light_skip_entity | length == 0 %}
+      false
+    {% else %}
+      {% set matching = expand(light_skip_entity) | selectattr('state', 'eq', light_skip_state) | list | length %}
+      {% set total = light_skip_entity | length %}
+      {{ (light_skip_type_on == 'any' and matching > 0) or (light_skip_type_on == 'all' and matching == total) }}
+    {% endif %}
+
+  light_skip_is_off: >
+    {% if use_light_skip != 'light_control_skip_enabled' or light_skip_entity | length == 0 %}
+      false
+    {% else %}
+      {% set matching_off = expand(light_skip_entity) | selectattr('state', 'ne', light_skip_state) | list | length %}
+      {% set total = light_skip_entity | length %}
+      {{ (light_skip_type_off == 'any' and matching_off > 0) or (light_skip_type_off == 'all' and matching_off == total) }}
+    {% endif %}
 
   # --- Smart Occupancy Logic Controls ---
   smart_occ_rising_edge: !input smart_occ_rising_edge
@@ -1274,6 +1384,9 @@ variables:
       {% set total = leaving_sensors | length %}
       {{ (leaving_type_off == 'any' and matching_off > 0) or (leaving_type_off == 'all' and matching_off == total) }}
     {% endif %}
+
+  # --- Smart Occupancy Hold ---
+  smart_occ_hold_priority: !input smart_occ_hold_priority
 
   # -- Detected Occupancy Hold ---
   use_detected_hold: !input use_detected_hold
@@ -1760,33 +1873,44 @@ conditions:
                       - alias: "Smart Occ Helper is currently EMPTY/OFF"
                         condition: template
                         value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
-          - alias: Cleared Hold is Not On and Enabled or Disabled
+          #- alias: Cleared Hold is Not On and Enabled or Disabled
+          #  condition: or
+          #  conditions:
+          #      - alias: "Clearing Hold is disabled"
+          #        condition: template
+          #        value_template: "{{ 'clearing_hold_enabled' not in use_cleared_hold }}"
+          #      - condition: and
+          #        conditions:
+          #            - alias: "Clearing Hold is enabled"
+          #              condition: template
+          #              value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
+          #            - condition: template
+          #              value_template: "{{ cleared_hold_entities | length > 0 }}"
+          #            - condition: template
+          #              alias: "Ensure logic is valid (Not in a dead-zone)"
+          #              value_template: "{{ not cleared_hold_is_on }}"
+          - alias: Cleared Hold is Not On OR Hold Priority Will Resolve Conflict
             condition: or
             conditions:
-                - alias: "Clearing Hold is disabled"
-                  condition: template
-                  value_template: "{{ 'clearing_hold_enabled' not in use_cleared_hold }}"
-                - condition: and
-                  conditions:
-                      - alias: "Clearing Hold is enabled"
-                        condition: template
-                        value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
-                      - condition: template
-                        value_template: "{{ cleared_hold_entities | length > 0 }}"
-                      - condition: template
-                        alias: "Ensure logic is valid (Not in a dead-zone)"
-                        value_template: "{{ not cleared_hold_is_on }}"
-              # Or if just holding and smart_occ is already ON
-              #- condition: and
-              #  conditions:
-              #    - condition: template
-              #      value_template: "{{ smart_occ_detected_hold_rising_edge == 'hold' }}"
-              #    - condition: and
-              #      conditions:
-              #        - condition: template
-              #          value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
-              #        - condition: template
-              #          value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+              - alias: "Clearing Hold is disabled"
+                condition: template
+                value_template: "{{ 'clearing_hold_enabled' not in use_cleared_hold }}"
+              - condition: and
+                conditions:
+                  - alias: "Clearing Hold is enabled but not active"
+                    condition: template
+                    value_template: "{{ 'clearing_hold_enabled' in use_cleared_hold }}"
+                  - condition: template
+                    value_template: "{{ cleared_hold_entities | length > 0 }}"
+                  - condition: template
+                    alias: "Cleared hold is not on"
+                    value_template: "{{ not cleared_hold_is_on }}"
+              - alias: "Both holds active - let calc_smart_occ resolve via priority"
+                condition: template
+                value_template: >
+                  {{ 'clearing_hold_enabled' in use_cleared_hold 
+                     and cleared_hold_is_on 
+                     and smart_occ_hold_priority in ['detected', 'cleared', 'first'] }}
 
       - alias: Cleared Hold Off / Released (Only if currently OFF or can trigger)
         condition: and
@@ -1972,35 +2096,47 @@ conditions:
                         value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
                       - condition: template
                         value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
-          - alias: Detected Hold Is Not On and Enabled or Disabled
+          #- alias: Detected Hold Is Not On and Enabled or Disabled
+          #  condition: or
+          #  conditions:
+          #      - alias: "Detected Hold is disabled"
+          #        condition: template
+          #        value_template: "{{ 'detected_hold_enabled' not in use_detected_hold }}"
+          #      - condition: and
+          #        conditions:
+          #          - alias: "Detected Hold is enabled"
+          #            condition: template
+          #            value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+          #          - alias: "Detected Hold Entities are not empty"
+          #            condition: template
+          #            value_template: "{{ detected_hold_entities | length > 0 }}"
+          #          - alias: "Ensure Hold Is Not On"
+          #            condition: template
+          #            value_template: "{{ not detected_hold_is_on }}"
+          - alias: Detected Hold is Not On OR Hold Priority Will Resolve Conflict
             condition: or
             conditions:
-                - alias: "Detected Hold is disabled"
-                  condition: template
-                  value_template: "{{ 'detected_hold_enabled' not in use_detected_hold }}"
-                - condition: and
-                  conditions:
-                    - alias: "Detected Hold is enabled"
-                      condition: template
-                      value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
-                    - alias: "Detected Hold Entities are not empty"
-                      condition: template
-                      value_template: "{{ detected_hold_entities | length > 0 }}"
-                    - alias: "Ensure Hold Is Not On"
-                      condition: template
-                      value_template: "{{ not detected_hold_is_on }}"
-              # Or if just holding and smart_occ is already OFF
-              #- condition: and
-              #  conditions:
-              #    - condition: template
-              #      value_template: "{{ smart_occ_cleared_hold_falling_edge == 'hold' }}"
-              #    - condition: or
-              #      conditions:
-              #        - condition: template
-              #          value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'off') }}"
-              #        - condition: template
-              #          value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'off') }}"
-      
+              - alias: "Detected Hold is disabled"
+                condition: template
+                value_template: "{{ 'detected_hold_enabled' not in use_detected_hold }}"
+              - condition: and
+                conditions:
+                  - alias: "Detected Hold is enabled but not active"
+                    condition: template
+                    value_template: "{{ 'detected_hold_enabled' in use_detected_hold }}"
+                  - alias: "Detected Hold Entities are not empty"
+                    condition: template
+                    value_template: "{{ detected_hold_entities | length > 0 }}"
+                  - alias: "Detected hold is not on"
+                    condition: template
+                    value_template: "{{ not detected_hold_is_on }}"
+              - alias: "Both holds active - let calc_smart_occ resolve via priority"
+                condition: template
+                value_template: >
+                  {{ 'detected_hold_enabled' in use_detected_hold 
+                     and detected_hold_is_on 
+                     and smart_occ_hold_priority in ['detected', 'cleared', 'first'] }}
+                     
       # ============================================================================
       # ENVIRONMENTAL TRIGGERS (Light control)
       # ============================================================================
@@ -2018,10 +2154,7 @@ conditions:
               - illuminance low limit
           - condition: template
             value_template: >
-              {{ 'light_control_skip_disabled' in use_light_skip
-                 or light_skip_entity | length == 0
-                 or (light_skip_entity | length > 0 
-                     and not is_state(light_skip_entity, light_skip_state)) }}
+              {{ use_light_skip == 'light_control_skip_disabled' or not light_skip_is_on }}
       
       - alias: Sun Elevation Thresholds
         condition: and
@@ -2046,10 +2179,35 @@ conditions:
               - sun rising threshold
           - condition: template
             value_template: >
-              {{ 'light_control_skip_disabled' in use_light_skip
-                 or light_skip_entity | length == 0
-                 or (light_skip_entity | length > 0 
-                     and not is_state(light_skip_entity, light_skip_state)) }}
+              {{ use_light_skip == 'light_control_skip_disabled' or not light_skip_is_on }}
+
+      # ============================================================================
+      # LIGHT SKIP TRIGGERS
+      # ============================================================================
+
+      - alias: Light Skip Activated
+        condition: and
+        conditions:
+          - condition: trigger
+            id: light control enabled
+          - condition: template
+            value_template: "{{ use_light_skip == 'light_control_skip_enabled' }}"
+          - condition: template
+            value_template: "{{ light_skip_entity | length > 0 }}"
+          - condition: template
+            value_template: "{{ light_skip_is_on and not light_skip_is_off }}"
+
+      - alias: Light Skip Released
+        condition: and
+        conditions:
+          - condition: trigger
+            id: light control disabled
+          - condition: template
+            value_template: "{{ use_light_skip == 'light_control_skip_enabled' }}"
+          - condition: template
+            value_template: "{{ light_skip_entity | length > 0 }}"
+          - condition: template
+            value_template: "{{ light_skip_is_off and not light_skip_is_on }}"
   
   - alias: Automation Control - Enabled
     condition: or
@@ -2082,27 +2240,38 @@ actions:
 
       # 3. Final Calculation
       calc_smart_occ: >
-        {# Priority 1: Safety/Override Controls #}
+        {# Priority 1: Automation Override #}
         {% if use_automation_control == 'automation_control_enabled' and is_state(automation_control_entity, automation_control_state) %}
           off
+
+        {# Priority 2: Hold Priority Resolution #}
+        {% elif detected_hold_is_on and not detected_hold_is_off and cleared_hold_is_on and not cleared_hold_is_off %}
+          {# Both holds active — resolve by priority setting #}
+          {% if smart_occ_hold_priority == 'detected' %}
+            on
+          {% elif smart_occ_hold_priority == 'cleared' %}
+            off
+          {% else %}
+            {{ current_state }}
+          {% endif %}
+
+        {# Priority 3: Single Hold Active #}
         {% elif detected_hold_is_on and not detected_hold_is_off and not cleared_hold_is_on and smart_occ_detected_hold_rising_edge == 'trigger_and_hold' %}
           on
         {% elif cleared_hold_is_on and not cleared_hold_is_off and not detected_hold_is_on and smart_occ_cleared_hold_falling_edge == 'trigger_and_hold' %}
           off
-        
-        {# Priority 2: Edge Logic (Only if not in a conflict state) #}
+
+        {# Priority 4: Edge Logic #}
         {% elif gate_open and smart_occ_rising_edge_should_turn_on %}
           on
         {% elif gate_open and smart_occ_falling_edge_should_turn_off %}
           off
 
-        {# Priority 3: The "All Clear" Check #}
-        {# If nothing is holding it ON and the room is empty/cleared, force OFF #}
+        {# Priority 5: All-Clear Failsafe #}
         {% elif not detected_hold_is_on and not smart_occ_rising_edge_should_turn_on and not smart_occ_falling_edge_should_turn_off %}
           off
 
-        {# Priority 4: Conflict Fallback (Latch) #}
-        {# This triggers if Rising and Falling are BOTH true, or BOTH false but not fully "cleared" #}
+        {# Priority 6: Conflict Latch #}
         {% else %}
           {{ current_state }}
         {% endif %}
@@ -2136,6 +2305,7 @@ actions:
               detected_hold_is_off: "{{ detected_hold_is_off }}"
               cleared_hold_is_on: "{{ cleared_hold_is_on }}"
               cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+              light_skip_is_on: "{{ light_skip_is_on }}"
               last_triggered_by: "{{ trigger.id }}"
 
       # Update the Input Boolean Helper
@@ -2153,10 +2323,12 @@ actions:
     if:
       - condition: template
         value_template: >
-          {{ 'light_control_skip_disabled' in use_light_skip
-             or light_skip_entity | length == 0
-             or (light_skip_entity | length > 0 
-              and not is_state(light_skip_entity, light_skip_state)) }}
+          {{ use_light_skip == 'light_control_skip_disabled' or not light_skip_is_on }}
+        #value_template: >
+        #  {{ 'light_control_skip_disabled' in use_light_skip
+        #     or light_skip_entity | length == 0
+        #     or (light_skip_entity | length > 0 
+        #      and not is_state(light_skip_entity, light_skip_state)) }}
     then:
       # ============================================================================
       # TURN LIGHTS ON - When calculated smart occupancy is ON
@@ -2266,6 +2438,7 @@ actions:
                             detected_hold_is_off: "{{ detected_hold_is_off }}"
                             cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                             cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                            light_skip_is_on: "{{ light_skip_is_on }}"
                             last_triggered_by: "{{ trigger.id }}"
                   #- action: script.turn_on
                   #  target:
@@ -2396,6 +2569,7 @@ actions:
                             detected_hold_is_off: "{{ detected_hold_is_off }}"
                             cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                             cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                            light_skip_is_on: "{{ light_skip_is_on }}"
                             last_triggered_by: "{{ trigger.id }}"
                   #data: >
                   # {{ {data_field_name: calc_smart_occ} }}
@@ -2405,4 +2579,284 @@ actions:
                   #  data:
                   #    occupancy_detected: "{{ calc_smart_occ }}"
 
+  - alias: "Light Skip - Apply Triggered State When Skip Activates"
+    if:
+      - condition: trigger
+        id: light control enabled
+      - condition: template
+        value_template: "{{ use_light_skip == 'light_control_skip_enabled' and light_skip_is_on }}"
+      - condition: template
+        value_template: "{{ light_skip_triggered_on_state != 'current' }}"
+    then:
+      - variables:
+          resolved_skip_on_state: >
+            {% if light_skip_triggered_on_state == 'smart_occ' %}
+              {{ calc_smart_occ }}
+            {% else %}
+              {{ light_skip_triggered_on_state }}
+            {% endif %}
+          env_allows_on: >
+            {% set sun_ok = use_sun == 'sun_disabled' or (
+              (is_state_attr('sun.sun', 'rising', false) and state_attr('sun.sun', 'elevation') | float(0) < sun_falling | float(90))
+              or
+              (is_state_attr('sun.sun', 'rising', true) and state_attr('sun.sun', 'elevation') | float(0) < sun_rising | float(90))
+            ) %}
+            {% set lux_ok = use_lux == 'use_lux_disabled' or lux_sensor | length == 0
+               or states(lux_sensor) | float(0) < lux_low_val | float(999) %}
+            {{ sun_ok and lux_ok }}
+      # Turn on lights
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'on' and light_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ light_entities }}"
+      # Turn on switches
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'on' and switch_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: "{{ switch_entities }}"
+      # Activate scenes (on)
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'on' and scene_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - action: scene.turn_on
+                target:
+                  entity_id: "{{ scene_entities }}"
+      # Run scripts (on)
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'on' and script_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - repeat:
+                  for_each: "{{ script_entities }}"
+                  sequence:
+                    - action: "{{ repeat.item }}"
+                      data:
+                        "{{ final_field_name }}": "{{ calc_smart_occ }}"
+                        smart_occupancy_state: "{{ calc_smart_occ }}"
+                        smart_occupancy_rising_trigger: "{{ smart_occ_rising_edge_should_turn_on }}"
+                        smart_occupancy_falling_trigger: "{{ smart_occ_falling_edge_should_turn_off }}"
+                        base_occupancy_state: "{{ states(base_occ) }}"
+                        entering_is_on: "{{ entering_is_on }}"
+                        entering_is_off: "{{ entering_is_off }}"
+                        leaving_is_on: "{{ leaving_is_on }}"
+                        leaving_is_off: "{{ leaving_is_off }}"
+                        detected_hold_is_on: "{{ detected_hold_is_on }}"
+                        detected_hold_is_off: "{{ detected_hold_is_off }}"
+                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                        cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                        light_skip_is_on: "{{ light_skip_is_on }}"
+                        automation_control_state_active: >
+                          {{ use_automation_control == 'automation_control_enabled' 
+                             and automation_control_entity | length > 0 
+                             and is_state(automation_control_entity, automation_control_state) }}
+                        last_triggered_by: "{{ trigger.id }}"
+      # Turn off lights
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'off' and light_entities | length > 0 }}"
+            sequence:
+              - action: light.turn_off
+                target:
+                  entity_id: "{{ light_entities }}"
+      # Turn off switches
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'off' and switch_entities | length > 0 }}"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: "{{ switch_entities }}"
+      # Activate off scenes
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'off' and off_scene_entities | length > 0 }}"
+            sequence:
+              - action: scene.turn_on
+                target:
+                  entity_id: "{{ off_scene_entities }}"
+      # Run off scripts
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_on_state == 'off' and off_script_entities | length > 0 }}"
+            sequence:
+              - repeat:
+                  for_each: "{{ off_script_entities }}"
+                  sequence:
+                    - action: "{{ repeat.item }}"
+                      data:
+                        "{{ final_field_name }}": "{{ calc_smart_occ }}"
+                        smart_occupancy_state: "{{ calc_smart_occ }}"
+                        smart_occupancy_rising_trigger: "{{ smart_occ_rising_edge_should_turn_on }}"
+                        smart_occupancy_falling_trigger: "{{ smart_occ_falling_edge_should_turn_off }}"
+                        base_occupancy_state: "{{ states(base_occ) }}"
+                        entering_is_on: "{{ entering_is_on }}"
+                        entering_is_off: "{{ entering_is_off }}"
+                        leaving_is_on: "{{ leaving_is_on }}"
+                        leaving_is_off: "{{ leaving_is_off }}"
+                        detected_hold_is_on: "{{ detected_hold_is_on }}"
+                        detected_hold_is_off: "{{ detected_hold_is_off }}"
+                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                        cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                        light_skip_is_on: "{{ light_skip_is_on }}"
+                        automation_control_state_active: >
+                          {{ use_automation_control == 'automation_control_enabled' 
+                             and automation_control_entity | length > 0 
+                             and is_state(automation_control_entity, automation_control_state) }}
+                        last_triggered_by: "{{ trigger.id }}"
+
+  - alias: "Light Skip - Apply Released State When Skip Deactivates"
+    if:
+      - condition: trigger
+        id: light control disabled
+      - condition: template
+        value_template: "{{ use_light_skip == 'light_control_skip_enabled' and light_skip_is_off }}"
+      - condition: template
+        value_template: "{{ light_skip_triggered_off_state != 'current' }}"
+    then:
+      - variables:
+          resolved_skip_off_state: >
+            {% if light_skip_triggered_off_state == 'smart_occ' %}
+              {{ calc_smart_occ }}
+            {% else %}
+              {{ light_skip_triggered_off_state }}
+            {% endif %}
+          env_allows_on: >
+            {% set sun_ok = use_sun == 'sun_disabled' or (
+              (is_state_attr('sun.sun', 'rising', false) and state_attr('sun.sun', 'elevation') | float(0) < sun_falling | float(90))
+              or
+              (is_state_attr('sun.sun', 'rising', true) and state_attr('sun.sun', 'elevation') | float(0) < sun_rising | float(90))
+            ) %}
+            {% set lux_ok = use_lux == 'use_lux_disabled' or lux_sensor | length == 0
+               or states(lux_sensor) | float(0) < lux_low_val | float(999) %}
+            {{ sun_ok and lux_ok }}
+      # Turn on lights
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'on' and light_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ light_entities }}"
+      # Turn on switches
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'on' and switch_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: "{{ switch_entities }}"
+      # Activate scenes (on)
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'on' and scene_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - action: scene.turn_on
+                target:
+                  entity_id: "{{ scene_entities }}"
+      # Run scripts (on)
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'on' and script_entities | length > 0 and env_allows_on }}"
+            sequence:
+              - repeat:
+                  for_each: "{{ script_entities }}"
+                  sequence:
+                    - action: "{{ repeat.item }}"
+                      data:
+                        "{{ final_field_name }}": "{{ calc_smart_occ }}"
+                        smart_occupancy_state: "{{ calc_smart_occ }}"
+                        smart_occupancy_rising_trigger: "{{ smart_occ_rising_edge_should_turn_on }}"
+                        smart_occupancy_falling_trigger: "{{ smart_occ_falling_edge_should_turn_off }}"
+                        base_occupancy_state: "{{ states(base_occ) }}"
+                        entering_is_on: "{{ entering_is_on }}"
+                        entering_is_off: "{{ entering_is_off }}"
+                        leaving_is_on: "{{ leaving_is_on }}"
+                        leaving_is_off: "{{ leaving_is_off }}"
+                        detected_hold_is_on: "{{ detected_hold_is_on }}"
+                        detected_hold_is_off: "{{ detected_hold_is_off }}"
+                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                        cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                        light_skip_is_on: "{{ light_skip_is_on }}"
+                        automation_control_state_active: >
+                          {{ use_automation_control == 'automation_control_enabled' 
+                             and automation_control_entity | length > 0 
+                             and is_state(automation_control_entity, automation_control_state) }}
+                        last_triggered_by: "{{ trigger.id }}"
+      # Turn off lights
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'off' and light_entities | length > 0 }}"
+            sequence:
+              - action: light.turn_off
+                target:
+                  entity_id: "{{ light_entities }}"
+      # Turn off switches
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'off' and switch_entities | length > 0 }}"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: "{{ switch_entities }}"
+      # Activate off scenes
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'off' and off_scene_entities | length > 0 }}"
+            sequence:
+              - action: scene.turn_on
+                target:
+                  entity_id: "{{ off_scene_entities }}"
+      # Run off scripts
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ resolved_skip_off_state == 'off' and off_script_entities | length > 0 }}"
+            sequence:
+              - repeat:
+                  for_each: "{{ off_script_entities }}"
+                  sequence:
+                    - action: "{{ repeat.item }}"
+                      data:
+                        "{{ final_field_name }}": "{{ calc_smart_occ }}"
+                        smart_occupancy_state: "{{ calc_smart_occ }}"
+                        smart_occupancy_rising_trigger: "{{ smart_occ_rising_edge_should_turn_on }}"
+                        smart_occupancy_falling_trigger: "{{ smart_occ_falling_edge_should_turn_off }}"
+                        base_occupancy_state: "{{ states(base_occ) }}"
+                        entering_is_on: "{{ entering_is_on }}"
+                        entering_is_off: "{{ entering_is_off }}"
+                        leaving_is_on: "{{ leaving_is_on }}"
+                        leaving_is_off: "{{ leaving_is_off }}"
+                        detected_hold_is_on: "{{ detected_hold_is_on }}"
+                        detected_hold_is_off: "{{ detected_hold_is_off }}"
+                        cleared_hold_is_on: "{{ cleared_hold_is_on }}"
+                        cleared_hold_is_off: "{{ cleared_hold_is_off }}"
+                        light_skip_is_on: "{{ light_skip_is_on }}"
+                        automation_control_state_active: >
+                          {{ use_automation_control == 'automation_control_enabled' 
+                             and automation_control_entity | length > 0 
+                             and is_state(automation_control_entity, automation_control_state) }}
+                        last_triggered_by: "{{ trigger.id }}"
+  
 mode: single
