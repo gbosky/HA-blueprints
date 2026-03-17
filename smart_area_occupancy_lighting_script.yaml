@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy - Lighting Script 💡🕹️"
   description: >
-    **Version: 1.0**
+    **Version: 1.1**
 
     This script is a companion to the **Smart Area Occupancy** blueprint.
     It provides a structured building block for advanced lighting or automation
@@ -50,6 +50,8 @@ blueprint:
 
     - `smart_occupancy_falling_trigger` → Falling edge evaluation result (`true` / `false`)
 
+    - `base_occupancy_state` → Current state of the base occupancy sensor (`on` / `off`)
+
     - `entering_is_on` / `entering_is_off` → Entering zone condition state (`true` / `false`)
 
     - `leaving_is_on` / `leaving_is_off` → Leaving zone condition state (`true` / `false`)
@@ -57,6 +59,10 @@ blueprint:
     - `detected_hold_is_on` / `detected_hold_is_off` → Detected hold condition state (`true` / `false`)
 
     - `cleared_hold_is_on` / `cleared_hold_is_off` → Cleared hold condition state (`true` / `false`)
+
+    - `light_skip_is_on` → Light skip condition is active, light control is bypassed (`true` / `false`)
+
+    - `automation_control_is_disabled` → Automation control entity is active and disabling the automation (`true` / `false`)
 
     - `last_triggered_by` → Trigger ID that caused the automation to run
 
@@ -81,6 +87,10 @@ blueprint:
     | Run a goodbye scene when occupancy fully clears | `Smart Occupancy State — Off` |
 
     | Trigger different scenes for rising vs falling transitions | `Smart Occupancy Rising Trigger` / `Smart Occupancy Falling Trigger` |
+
+    | Skip light actions when light skip is active | `Light Skip Is On` |
+
+    | React when automation control disables the automation | `Automation Control Is Disabled` |
 
     
     ## 🛠️ Getting Started
@@ -137,49 +147,64 @@ fields:
     example: "false"
     required: false
 
+  base_occupancy_state:
+    description: "Current state of the base occupancy sensor"
+    example: "on"
+    required: false
+
   entering_is_on:
-    description: "Lights are on during entering phase"
+    description: "Entering condition is currently active"
     example: "true"
     required: false
 
   entering_is_off:
-    description: "Lights are off during entering phase"
+    description: "Entering condition is currently inactive"
     example: "false"
     required: false
 
   leaving_is_on:
-    description: "Lights are on during leaving phase"
+    description: "Leaving condition is currently active"
     example: "false"
     required: false
 
   leaving_is_off:
-    description: "Lights are off during leaving phase"
+    description: "Leaving condition is currently inactive"
     example: "true"
     required: false
 
   detected_hold_is_on:
-    description: "Lights on during detected/hold phase"
+    description: "Detected hold condition is currently active"
     example: "true"
     required: false
 
   detected_hold_is_off:
-    description: "Lights off during detected/hold phase"
+    description: "Detected hold condition is currently inactive"
     example: "false"
     required: false
 
   cleared_hold_is_on:
-    description: "Lights on during cleared/hold phase"
+    description: "Cleared hold condition is currently active"
     example: "false"
     required: false
 
   cleared_hold_is_off:
-    description: "Lights off during cleared/hold phase"
+    description: "Cleared hold condition is currently inactive"
     example: "true"
+    required: false
+
+  light_skip_is_on:
+    description: "Light skip condition is currently active — light control is being bypassed"
+    example: "false"
+    required: false
+
+  automation_control_is_disabled:
+    description: "Automation control entity is active and currently disabling the automation"
+    example: "false"
     required: false
 
   last_triggered_by:
     description: "Trigger ID that last fired this script"
-    example: "motion_sensor"
+    example: "base occupancy on"
     required: false
 
 sequence:
@@ -202,6 +227,9 @@ sequence:
         Smart Occupancy Falling Trigger:    {{ smart_occupancy_falling_trigger | default('not provided') }}
 
 
+        Base Occupancy State:               {{ base_occupancy_state | default('not provided') }}
+
+
         Entering Is On:                     {{ entering_is_on | default('not provided') }}
 
         Entering Is Off:                    {{ entering_is_off | default('not provided') }}
@@ -221,6 +249,10 @@ sequence:
 
         Cleared Hold Is Off:                {{ cleared_hold_is_off | default('not provided') }}
 
+
+        Light Skip Is On:                   {{ light_skip_is_on | default('not provided') }}
+
+        Automation Control Is Disabled:     {{ automation_control_is_disabled | default('not provided') }}
 
   # Each block below only runs when its field matches
   - alias: "Smart Occupancy State — On"
@@ -270,6 +302,30 @@ sequence:
           title: "Smart Occupancy Falling Trigger"
           notification_id: "occupancy_falling_trigger"
           message: "Smart Occupancy Falling Trigger is true — replace this with your actions"
+
+  - alias: "Base Occupancy State — On"
+    if:
+      - condition: template
+        value_template: "{{ base_occupancy_state | default('off') | string | lower == 'on' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Base Occupancy State is On"
+        action: persistent_notification.create
+        data:
+          title: "Base Occupancy State — On"
+          notification_id: "occupancy_base_state_on"
+          message: "Base Occupancy State is on — replace this with your actions"
+
+  - alias: "Base Occupancy State — Off"
+    if:
+      - condition: template
+        value_template: "{{ base_occupancy_state | default('off') | string | lower == 'off' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Base Occupancy State is Off"
+        action: persistent_notification.create
+        data:
+          title: "Base Occupancy State — Off"
+          notification_id: "occupancy_base_state_off"
+          message: "Base Occupancy State is off — replace this with your actions"
 
   - alias: "Entering Is On"
     if:
@@ -366,6 +422,30 @@ sequence:
           title: "Cleared Hold Is Off"
           notification_id: "occupancy_cleared_hold_is_off"
           message: "Cleared Hold Is Off is true — replace this with your actions"
+
+  - alias: "Light Skip Is On"
+    if:
+      - condition: template
+        value_template: "{{ light_skip_is_on | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Light Skip Is On"
+        action: persistent_notification.create
+        data:
+          title: "Light Skip Is On"
+          notification_id: "occupancy_light_skip_is_on"
+          message: "Light Skip Is On is true — replace this with your actions"
+
+  - alias: "Automation Control Is Disabled"
+    if:
+      - condition: template
+        value_template: "{{ automation_control_is_disabled | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Automation Control Is Disabled"
+        action: persistent_notification.create
+        data:
+          title: "Automation Control Is Disabled"
+          notification_id: "occupancy_automation_control_disabled"
+          message: "Automation control is active and has disabled the automation — replace this with your actions"
 
 mode: queued
 max: 5
