@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.2**
+    **Version: 1.2.1**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -1296,6 +1296,12 @@ variables:
   automation_control_entity: !input automation_control_entity
   automation_control_state: !input automation_control_state
   fallback_state_sensor: !input fallback_state_sensor
+  automation_control_is_disabled: >
+      {{ use_automation_control == 'automation_control_enabled' 
+        and automation_control_entity | length > 0 
+        and is_state(automation_control_entity, automation_control_state) }}
+
+  # --- Light Control Skip ---
   use_light_skip: !input use_light_skip
   light_skip_entity: !input light_skip_entity
   light_skip_state: !input light_skip_state
@@ -2306,6 +2312,7 @@ actions:
               cleared_hold_is_on: "{{ cleared_hold_is_on }}"
               cleared_hold_is_off: "{{ cleared_hold_is_off }}"
               light_skip_is_on: "{{ light_skip_is_on }}"
+              automation_control_is_disabled: "{{ automation_control_is_disabled }}"
               last_triggered_by: "{{ trigger.id }}"
 
       # Update the Input Boolean Helper
@@ -2439,6 +2446,7 @@ actions:
                             cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                             cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                             light_skip_is_on: "{{ light_skip_is_on }}"
+                            automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                             last_triggered_by: "{{ trigger.id }}"
                   #- action: script.turn_on
                   #  target:
@@ -2570,6 +2578,7 @@ actions:
                             cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                             cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                             light_skip_is_on: "{{ light_skip_is_on }}"
+                            automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                             last_triggered_by: "{{ trigger.id }}"
                   #data: >
                   # {{ {data_field_name: calc_smart_occ} }}
@@ -2656,10 +2665,7 @@ actions:
                         cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                         cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                         light_skip_is_on: "{{ light_skip_is_on }}"
-                        automation_control_state_active: >
-                          {{ use_automation_control == 'automation_control_enabled' 
-                             and automation_control_entity | length > 0 
-                             and is_state(automation_control_entity, automation_control_state) }}
+                        automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                         last_triggered_by: "{{ trigger.id }}"
       # Turn off lights
       - choose:
@@ -2713,10 +2719,7 @@ actions:
                         cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                         cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                         light_skip_is_on: "{{ light_skip_is_on }}"
-                        automation_control_state_active: >
-                          {{ use_automation_control == 'automation_control_enabled' 
-                             and automation_control_entity | length > 0 
-                             and is_state(automation_control_entity, automation_control_state) }}
+                        automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                         last_triggered_by: "{{ trigger.id }}"
 
   - alias: "Light Skip - Apply Released State When Skip Deactivates"
@@ -2796,10 +2799,7 @@ actions:
                         cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                         cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                         light_skip_is_on: "{{ light_skip_is_on }}"
-                        automation_control_state_active: >
-                          {{ use_automation_control == 'automation_control_enabled' 
-                             and automation_control_entity | length > 0 
-                             and is_state(automation_control_entity, automation_control_state) }}
+                        automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                         last_triggered_by: "{{ trigger.id }}"
       # Turn off lights
       - choose:
@@ -2853,10 +2853,7 @@ actions:
                         cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                         cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                         light_skip_is_on: "{{ light_skip_is_on }}"
-                        automation_control_state_active: >
-                          {{ use_automation_control == 'automation_control_enabled' 
-                             and automation_control_entity | length > 0 
-                             and is_state(automation_control_entity, automation_control_state) }}
+                        automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                         last_triggered_by: "{{ trigger.id }}"
   
 mode: single
