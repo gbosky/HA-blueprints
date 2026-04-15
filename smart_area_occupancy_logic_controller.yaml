@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.2.1**
+    **Version: 1.2.2**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -1743,6 +1743,7 @@ conditions:
                 value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
+          - "{{ 'base_occ' in smart_occ_rising_edge }}"
           - alias: Cleared Hold is Not On and Enabled or Disabled
             condition: or
             conditions:
