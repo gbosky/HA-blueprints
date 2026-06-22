@@ -447,5 +447,4 @@ sequence:
           notification_id: "occupancy_automation_control_disabled"
           message: "Automation control is active and has disabled the automation — replace this with your actions"
 
-mode: queued
-max: 5
+mode: restart
