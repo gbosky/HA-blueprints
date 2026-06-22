@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy - Lighting Script 💡🕹️"
   description: >
-    **Version: 1.1**
+    **Version: 1.2**
 
     This script is a companion to the **Smart Area Occupancy** blueprint.
     It provides a structured building block for advanced lighting or automation
