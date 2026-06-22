@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.4.0**
+    **Version: 1.4.1**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -508,7 +508,7 @@ blueprint:
           default: []
           selector:
             entity:
-              multiple: false #only 1 can be selected so manual control can toggle it if used. Look into logic if multiple is desired
+              multiple: true #only 1 can be selected so manual control can toggle it if used. Look into logic if multiple is desired
 
         light_skip_state:
           name: Disable Light Control Entity Activation State
