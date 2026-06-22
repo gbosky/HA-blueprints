@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.4.1**
+    **Version: 1.4.2**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -2593,9 +2593,14 @@ actions:
           - condition: or
             conditions:
               # Reason 1: Occupancy is off
-              - condition: template
-                alias: "Calculated state is OFF"
-                value_template: "{{ calc_smart_occ == 'off' }}"
+              - condition: and
+                conditions:
+                  - condition: template
+                    alias: Calculated state is OFF
+                    value_template: "{{ calc_smart_occ == 'off' }}"
+                  - condition: template
+                    alias: Automation control is not being disabled
+                    value_template: "{{ trigger.id != 'automation disabled' }}"
 
               # Reason 2: Environmental override (too bright)
               - condition: and
