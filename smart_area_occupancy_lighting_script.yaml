@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy - Lighting Script 💡🕹️"
   description: >
-    **Version: 1.2**
+    **Version: 1.4**
 
     This script is a companion to the **Smart Area Occupancy** blueprint.
     It provides a structured building block for advanced lighting or automation
@@ -61,6 +61,10 @@ blueprint:
     - `cleared_hold_is_on` / `cleared_hold_is_off` → Cleared hold condition state (`true` / `false`)
 
     - `light_skip_is_on` → Light skip condition is active, light control is bypassed (`true` / `false`)
+
+    - `light_turn_on` → Light turn on command is triggered (`true` / `false`)
+
+    - `light_turn_off` → Light turn off command is triggered (`true` / `false`)
 
     - `automation_control_is_disabled` → Automation control entity is active and disabling the automation (`true` / `false`)
 
@@ -197,6 +201,16 @@ fields:
     example: "false"
     required: false
 
+  light_turn_on:
+    description: "Explicit light turn on activation command equivalent"
+    example: "true"
+    required: false
+
+  light_turn_off:
+    description: "Explicit light turn off activation command equivalent"
+    example: "false"
+    required: false
+
   automation_control_is_disabled:
     description: "Automation control entity is active and currently disabling the automation"
     example: "false"
@@ -251,6 +265,10 @@ sequence:
 
 
         Light Skip Is On:                   {{ light_skip_is_on | default('not provided') }}
+
+        Light Turn On:                      {{ light_turn_on | default('not provided') }}
+
+        Light Turn Off:                     {{ light_turn_off | default('not provided') }}
 
         Automation Control Is Disabled:     {{ automation_control_is_disabled | default('not provided') }}
 
@@ -422,6 +440,30 @@ sequence:
           title: "Cleared Hold Is Off"
           notification_id: "occupancy_cleared_hold_is_off"
           message: "Cleared Hold Is Off is true — replace this with your actions"
+
+  - alias: "Light Turn On"
+    if:
+      - condition: template
+        value_template: "{{ light_turn_on | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Light Turn On"
+        action: persistent_notification.create
+        data:
+          title: "Light Turn On"
+          notification_id: "light_on_trigger"
+          message: "Light Turn On is true — replace this with your actions"
+
+  - alias: "Light Turn Off"
+    if:
+      - condition: template
+        value_template: "{{ light_turn_off | default(false) | string | lower == 'true' }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Light Turn Off"
+        action: persistent_notification.create
+        data:
+          title: "Light Turn Off"
+          notification_id: "light_off_trigger"
+          message: "Light Turn Off is true — replace this with your actions"
 
   - alias: "Light Skip Is On"
     if:
