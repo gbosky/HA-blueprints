@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.4.2**
+    **Version: 1.4.3**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -392,6 +392,17 @@ blueprint:
       icon: mdi:lightbulb-auto-outline
       collapsed: true
       input:
+        exit_delay: 
+          name: Exit Delay
+          description: >
+            When I light command is sent for turning off the light, this delay setting will suppress any light on triggers until time expires.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 10
+          selector:
+            duration:
+
         off_behavior:
           name: Off Behavior (Scripts ONLY)
           description: >
@@ -2471,9 +2482,14 @@ actions:
       # ============================================================================
       - alias: "Light On - Follow Smart Occupancy"
         if:
-          - alias: "Calculated state is ON"
-            condition: template
-            value_template: "{{ calc_smart_occ == 'on' }}"
+          - condition: and
+            conditions:
+              - condition: template
+                alias: "Only if something actually changed"
+                value_template: "{{ current_state != calc_smart_occ }}"
+              - alias: "Calculated state is ON"
+                condition: template
+                value_template: "{{ calc_smart_occ == 'on' }}"
 
           # Environmental conditions for turning ON
           - condition: and
@@ -2596,6 +2612,9 @@ actions:
               - condition: and
                 conditions:
                   - condition: template
+                    alias: "Only if something actually changed"
+                    value_template: "{{ current_state != calc_smart_occ }}"
+                  - condition: template
                     alias: Calculated state is OFF
                     value_template: "{{ calc_smart_occ == 'off' }}"
                   - condition: template
@@ -2662,7 +2681,7 @@ actions:
                         above: !input lux_high_val
 
         then:
-          # Turn on lights
+          # Turn off lights
           - choose:
               - conditions:
                   - condition: template
@@ -2671,7 +2690,7 @@ actions:
                   - action: light.turn_off
                     target:
                       entity_id: "{{ light_entities }}"
-          # Turn on switches
+          # Turn off switches
           - choose:
               - conditions:
                   - condition: template
@@ -2859,8 +2878,8 @@ actions:
                         cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                         cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                         light_skip_is_on: "{{ light_skip_is_on }}"
-                        light_turn_on: true
-                        light_turn_off: false
+                        light_turn_on: false
+                        light_turn_off: true
                         automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                         last_triggered_by: "{{ trigger.id }}"
 
@@ -2997,8 +3016,8 @@ actions:
                         cleared_hold_is_on: "{{ cleared_hold_is_on }}"
                         cleared_hold_is_off: "{{ cleared_hold_is_off }}"
                         light_skip_is_on: "{{ light_skip_is_on }}"
-                        light_turn_on: true
-                        light_turn_off: false
+                        light_turn_on: false
+                        light_turn_off: true
                         automation_control_is_disabled: "{{ automation_control_is_disabled }}"
                         last_triggered_by: "{{ trigger.id }}"
 
