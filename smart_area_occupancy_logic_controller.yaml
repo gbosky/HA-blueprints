@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.4.3**
+    **Version: 1.5.0**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -392,7 +392,7 @@ blueprint:
       icon: mdi:lightbulb-auto-outline
       collapsed: true
       input:
-        exit_delay: 
+        exit_delay:
           name: Exit Delay
           description: >
             When I light command is sent for turning off the light, this delay setting will suppress any light on triggers until time expires.
@@ -1550,87 +1550,148 @@ variables:
     {% endif %}
 
   # --- SMART OCCUPANCY RISING EDGE STATE ---
-  smart_occ_rising_edge_should_turn_on: >
+  smart_occ_rising_edge_should_turn_on: >-
     {% if smart_occ_rising_edge | length == 0 %}
-      false
+      {{ false }}
     {% else %}
-      {% set active_selections = namespace(count=0) %}
-      {% set conditions_met = namespace(count=0) %}
+      {% set trigger_entity = trigger.entity_id | default('') %}
+      
+      {# Strict Edge Validation: The event trigger MUST belong to an item in this list #}
+      {% set is_valid_rising_trigger = 
+        ('base_occ' in smart_occ_rising_edge and trigger_entity == base_occ) or
+        ('entering' in smart_occ_rising_edge and trigger_entity in entering_sensors) or
+        ('leaving' in smart_occ_rising_edge and trigger_entity in leaving_sensors) or
+        ('detected_hold' in smart_occ_rising_edge and trigger_entity in detected_hold_entities) or
+        ('cleared_hold' in smart_occ_rising_edge and trigger_entity in cleared_hold_entities)
+      %}
 
-      {# 1. Base Occupancy (Must be ON to Turn ON) #}
-      {% if 'base_occ' in smart_occ_rising_edge %}
-        {% set active_selections.count = active_selections.count + 1 %}
-        {% if is_state(base_occ, 'on') %}
-          {% set conditions_met.count = conditions_met.count + 1 %}
-        {% endif %}
-      {% endif %}
-
-      {# 2. Entering Logic (Someone moving in helps turn it ON) #}
-      {% if 'entering' in smart_occ_rising_edge and use_entering == 'use_entering_enabled' and entering_sensors | length > 0 %}
-        {% set active_selections.count = active_selections.count + 1 %}
-        {% if entering_is_on %}
-          {% set conditions_met.count = conditions_met.count + 1 %}
-        {% endif %}
-      {% endif %}
-
-      {# 3. Leaving Logic (Inverse: No one leaving helps turn it ON / stay ON) #}
-      {% if 'leaving' in smart_occ_rising_edge and use_leaving == 'use_leaving_enabled' and leaving_sensors | length > 0 %}
-        {% set active_selections.count = active_selections.count + 1 %}
-        {% if leaving_is_off %}
-          {% set conditions_met.count = conditions_met.count + 1 %}
-        {% endif %}
-      {% endif %}
-
-      {# Final Evaluation Logic #}
-      {% if active_selections.count == 0 %}
-        {# If everything selected is actually disabled/empty, don't turn on #}
-        false
+      {% if not is_valid_rising_trigger %}
+        {{ false }}
       {% else %}
-        {% set is_any = (smart_occ_rising_edge_type_on == 'any' and conditions_met.count > 0) %}
-        {% set is_all = (smart_occ_rising_edge_type_on == 'all' and conditions_met.count == active_selections.count) %}
-        {{ is_any or is_all }}
+        {% set active_selections = namespace(count=0) %}
+        {% set conditions_met = namespace(count=0) %}
+
+        {# 1. Base Occupancy #}
+        {% if 'base_occ' in smart_occ_rising_edge %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if is_state(base_occ, 'on') %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 2. Entering Logic #}
+        {% if 'entering' in smart_occ_rising_edge and use_entering == 'use_entering_enabled' and entering_sensors | length > 0 %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if entering_is_on %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 3. Leaving Logic #}
+        {% if 'leaving' in smart_occ_rising_edge and use_leaving == 'use_leaving_enabled' and leaving_sensors | length > 0 %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if leaving_is_off %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 4. Detected Hold Logic #}
+        {% if 'detected_hold' in smart_occ_rising_edge and use_detected_hold == 'detected_hold_enabled' %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if detected_hold_is_on %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 5. Cleared Hold Logic #}
+        {% if 'cleared_hold' in smart_occ_rising_edge and use_cleared_hold == 'clearing_hold_enabled' %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if cleared_hold_is_on %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# Final Evaluation #}
+        {% if active_selections.count == 0 %}
+          {{ false }}
+        {% else %}
+          {% set is_any = (smart_occ_rising_edge_type_on == 'any' and conditions_met.count > 0) %}
+          {% set is_all = (smart_occ_rising_edge_type_on == 'all' and conditions_met.count == active_selections.count) %}
+          {{ is_any or is_all }}
+        {% endif %}
       {% endif %}
     {% endif %}
 
   # --- SMART OCCUPANCY FALLING EDGE STATE ---
-  smart_occ_falling_edge_should_turn_off: >
+  smart_occ_falling_edge_should_turn_off: >-
     {% if smart_occ_falling_edge | length == 0 %}
-      false
+      {{ false }}
     {% else %}
-      {% set active_selections = namespace(count=0) %}
-      {% set conditions_met = namespace(count=0) %}
+      {% set trigger_entity = trigger.entity_id | default('') %}
+      
+      {# Strict Edge Validation: The event trigger MUST belong to an item in this list #}
+      {% set is_valid_falling_trigger = 
+        ('base_occ' in smart_occ_falling_edge and trigger_entity == base_occ) or
+        ('entering' in smart_occ_falling_edge and trigger_entity in entering_sensors) or
+        ('leaving' in smart_occ_falling_edge and trigger_entity in leaving_sensors) or
+        ('detected_hold' in smart_occ_falling_edge and trigger_entity in detected_hold_entities) or
+        ('cleared_hold' in smart_occ_falling_edge and trigger_entity in cleared_hold_entities)
+      %}
 
-      {# 1. Base Occupancy #}
-      {% if 'base_occ' in smart_occ_falling_edge %}
-        {% set active_selections.count = active_selections.count + 1 %}
-        {% if is_state(base_occ, 'off') %}
-          {% set conditions_met.count = conditions_met.count + 1 %}
-        {% endif %}
-      {% endif %}
-
-      {# 2. Entering Logic #}
-      {% if 'entering' in smart_occ_falling_edge and use_entering == 'use_entering_enabled' and entering_sensors | length > 0 %}
-        {% set active_selections.count = active_selections.count + 1 %}
-        {% if entering_is_off %}
-          {% set conditions_met.count = conditions_met.count + 1 %}
-        {% endif %}
-      {% endif %}
-
-      {# 3. Leaving Logic #}
-      {% if 'leaving' in smart_occ_falling_edge and use_leaving == 'use_leaving_enabled' and leaving_sensors | length > 0 %}
-        {% set active_selections.count = active_selections.count + 1 %}
-        {% if leaving_is_on %}
-          {% set conditions_met.count = conditions_met.count + 1 %}
-        {% endif %}
-      {% endif %}
-
-      {# Final Evaluation #}
-      {% if active_selections.count == 0 %}
-        false
+      {% if not is_valid_falling_trigger %}
+        {{ false }}
       {% else %}
-        {% set is_any = (smart_occ_falling_edge_type_off == 'any' and conditions_met.count > 0) %}
-        {% set is_all = (smart_occ_falling_edge_type_off == 'all' and conditions_met.count == active_selections.count) %}
-        {{ is_any or is_all }}
+        {% set active_selections = namespace(count=0) %}
+        {% set conditions_met = namespace(count=0) %}
+
+        {# 1. Base Occupancy #}
+        {% if 'base_occ' in smart_occ_falling_edge %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if is_state(base_occ, 'off') %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 2. Entering Logic #}
+        {% if 'entering' in smart_occ_falling_edge and use_entering == 'use_entering_enabled' and entering_sensors | length > 0 %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if entering_is_off %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 3. Leaving Logic #}
+        {% if 'leaving' in smart_occ_falling_edge and use_leaving == 'use_leaving_enabled' and leaving_sensors | length > 0 %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if leaving_is_on %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 4. Detected Hold Logic #}
+        {% if 'detected_hold' in smart_occ_falling_edge and use_detected_hold == 'detected_hold_enabled' %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if detected_hold_is_off %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# 5. Cleared Hold Logic #}
+        {% if 'cleared_hold' in smart_occ_falling_edge and use_cleared_hold == 'clearing_hold_enabled' %}
+          {% set active_selections.count = active_selections.count + 1 %}
+          {% if cleared_hold_is_off %}
+            {% set conditions_met.count = conditions_met.count + 1 %}
+          {% endif %}
+        {% endif %}
+
+        {# Final Evaluation #}
+        {% if active_selections.count == 0 %}
+          {{ false }}
+        {% else %}
+          {% set is_any = (smart_occ_falling_edge_type_off == 'any' and conditions_met.count > 0) %}
+          {% set is_all = (smart_occ_falling_edge_type_off == 'all' and conditions_met.count == active_selections.count) %}
+          {{ is_any or is_all }}
+        {% endif %}
       {% endif %}
     {% endif %}
 
@@ -1678,6 +1739,10 @@ variables:
   #  {% endif %}
 
 triggers:
+  - trigger: homeassistant
+    event: start
+  - trigger: event
+    event_type: automation_reloaded
   - alias: Base Occupancy ON Trigger
     trigger: state
     id: base occupancy on
@@ -2376,8 +2441,12 @@ actions:
 
       # 3. Final Calculation
       calc_smart_occ: >
+        {# Priority 0: Restart / Reload Failsafe #}
+        {% if trigger is defined and trigger.platform == 'homeassistant' %}
+          {{ states(base_occ) }}
+
         {# Priority 1: Automation Override - Fallback State #}
-        {% if use_automation_control == 'automation_control_enabled' and is_state(automation_control_entity, automation_control_state) %}
+        {% elif use_automation_control == 'automation_control_enabled' and is_state(automation_control_entity, automation_control_state) %}
           {% if fallback_state_sensor in ['on', 'off'] %}
             {{ fallback_state_sensor }}
           {% else %}
@@ -2407,14 +2476,25 @@ actions:
         {% elif gate_open and smart_occ_falling_edge_should_turn_off and not (detected_hold_is_on and not detected_hold_is_off) %}
           off
 
-        {# Priority 5: All-Clear Failsafe #}
-        {% elif not detected_hold_is_on 
-            and not cleared_hold_is_on
-            and not smart_occ_rising_edge_should_turn_on 
-            and not smart_occ_falling_edge_should_turn_off %}
+        {# Priority 5: Absolute Global All-Clear #}
+        {% elif is_state(base_occ, 'off')
+            and detected_hold_is_off
+            and cleared_hold_is_off
+            and entering_is_off
+            and leaving_is_off %}
           off
 
-        {# Priority 6: Conflict Latch #}
+        {# Priority 6: No Edge Changes #}
+        {% elif not smart_occ_rising_edge_should_turn_on 
+            and not smart_occ_falling_edge_should_turn_off %}
+          {{ current_state }}
+
+        {# Priority 7: No-Hold Failsafe #}
+        {% elif not detected_hold_is_on 
+            and not cleared_hold_is_on %}
+          off
+
+        {# Priority 8: Conflict Latch #}
         {% else %}
           {{ current_state }}
         {% endif %}
