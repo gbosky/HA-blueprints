@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: >
-    **Version: 1.5.0**
+    **Version: 1.5.1**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -1930,13 +1930,19 @@ conditions:
         conditions:
           - condition: trigger
             id: "base occupancy on"
-          - condition: and
+          - condition: or
             alias: "Smart Occ is currently OFF"
             conditions:
               - condition: template
                 value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'off') }}
           - "{{ 'base_occ' in smart_occ_rising_edge }}"
           - alias: Cleared Hold is Not On and Enabled or Disabled
             condition: or
@@ -1966,13 +1972,20 @@ conditions:
           - condition: template
             alias: "Ensure logic is valid (Not in a dead-zone)"
             value_template: "{{ entering_is_on and not entering_is_off }}" #if both match then trigger will skip and stay in its last state (entering on cant be true and trigger if entering off is still true)
-          - condition: and
+          - condition: or
             alias: "Smart Occ is currently OFF"
             conditions:
               - condition: template
                 value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'off') }}
+
           - "{{ 'entering' in smart_occ_rising_edge }}"
           - alias: Cleared Hold is Not On and Enabled or Disabled
             condition: or
@@ -2009,13 +2022,19 @@ conditions:
           - condition: template
             alias: "Ensure logic is valid (Not in a dead-zone)"
             value_template: "{{ leaving_is_off and not leaving_is_on }}" #if both match then trigger will skip and stay in its last state (leaving off cant be true and trigger if leaving on is still true)
-          - condition: and
+          - condition: or
             alias: "Smart Occ is currently OFF"
             conditions:
               - condition: template
                 value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'off') }}
           - "{{ 'leaving' in smart_occ_rising_edge }}"
           - alias: Cleared Hold is Not On and Enabled or Disabled
             condition: or
@@ -2066,7 +2085,7 @@ conditions:
                     condition: template
                     value_template: "{{ smart_occ_detected_hold_rising_edge == 'trigger_and_hold' }}"
                   - alias: "Smart Occ Sensor is empty/off AND Smart Occ Helper is empty/off"
-                    condition: and
+                    condition: or
                     conditions:
                       - alias: "Smart Occ Sensor is currently EMPTY/OFF"
                         condition: template
@@ -2074,6 +2093,12 @@ conditions:
                       - alias: "Smart Occ Helper is currently EMPTY/OFF"
                         condition: template
                         value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
+                      - condition: template
+                        alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                        value_template: >-
+                          {{ smart_occ_sensor | length == 0
+                            and smart_occ_helper | length == 0
+                            and is_state(base_occ, 'off') }}
           #- alias: Cleared Hold is Not On and Enabled or Disabled
           #  condition: or
           #  conditions:
@@ -2124,12 +2149,18 @@ conditions:
           - condition: template
             alias: "Ensure logic is valid (Not in a dead-zone)"
             value_template: "{{ cleared_hold_is_off and not cleared_hold_is_on }}"
-          - condition: and
+          - condition: or
             conditions:
               - condition: template
                 value_template: "{{ smart_occ_sensor | length == 0 or not is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or not is_state(smart_occ_helper, 'on') }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'off') }}
 
       # ============================================================================
       # FALLING EDGE TRIGGERS (Should turn OFF)
@@ -2140,13 +2171,32 @@ conditions:
         conditions:
           - condition: trigger
             id: "base occupancy off"
-          - condition: and
+          - condition: or
             alias: "Smart Occ is currently ON"
             conditions:
               - condition: template
                 value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'on') }}
+          - condition: or
+            alias: "Base Occ in falling edge, OR global all-clear may now apply"
+            conditions:
+              - condition: template
+                value_template: "{{ 'base_occ' in smart_occ_falling_edge }}"
+              - condition: template
+                alias: "Priority 5 All-Clear will be satisfied"
+                value_template: >-
+                  {{ is_state(base_occ, 'off')
+                    and detected_hold_is_off
+                    and cleared_hold_is_off
+                    and entering_is_off
+                    and leaving_is_off }}
           - alias: Detected Hold Is Not On and Enabled or Disabled
             condition: or
             conditions:
@@ -2183,7 +2233,28 @@ conditions:
                 value_template: "{{ smart_occ_sensor | length > 0 and is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
-          - "{{ 'entering' in smart_occ_falling_edge }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'on') }}
+
+          - condition: or
+            alias: "Entering in falling edge, OR global all-clear may now apply"
+            conditions:
+              - condition: template
+                value_template: "{{ 'entering' in smart_occ_falling_edge }}"
+              - condition: template
+                alias: "Priority 5 All-Clear will be satisfied"
+                value_template: >-
+                  {{ is_state(base_occ, 'off')
+                    and detected_hold_is_off
+                    and cleared_hold_is_off
+                    and entering_is_off
+                    and leaving_is_off }}
+
+          #- "{{ 'entering' in smart_occ_falling_edge }}"
           - alias: Detected Hold Is Not On and Enabled or Disabled
             condition: or
             conditions:
@@ -2227,7 +2298,25 @@ conditions:
                 value_template: "{{ smart_occ_sensor | length > 0 and is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length > 0 and is_state(smart_occ_helper, 'on') }}"
-          - "{{ 'leaving' in smart_occ_falling_edge }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'on') }}
+          - condition: or
+            alias: "Leaving in falling edge, OR global all-clear may now apply"
+            conditions:
+              - condition: template
+                value_template: "{{ 'leaving' in smart_occ_falling_edge }}"
+              - condition: template
+                alias: "Priority 5 All-Clear will be satisfied"
+                value_template: >-
+                  {{ is_state(base_occ, 'off')
+                    and detected_hold_is_off
+                    and cleared_hold_is_off
+                    and entering_is_off
+                    and leaving_is_off }}
           - alias: Detected Hold Is Not On and Enabled or Disabled
             condition: or
             conditions:
@@ -2264,12 +2353,18 @@ conditions:
           - condition: template
             alias: "Ensure logic is valid (Not in a dead-zone)"
             value_template: "{{ detected_hold_is_off and not detected_hold_is_on }}"
-          - condition: and
+          - condition: or
             conditions:
               - condition: template
                 value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
               - condition: template
                 value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+              - condition: template
+                alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                value_template: >-
+                  {{ smart_occ_sensor | length == 0
+                    and smart_occ_helper | length == 0
+                    and is_state(base_occ, 'on') }}
 
       - alias: Cleared Hold ON (Only if currently ON or can trigger)
         condition: and
@@ -2297,6 +2392,12 @@ conditions:
                         value_template: "{{ smart_occ_sensor | length == 0 or is_state(smart_occ_sensor, 'on') }}"
                       - condition: template
                         value_template: "{{ smart_occ_helper | length == 0 or is_state(smart_occ_helper, 'on') }}"
+                      - condition: template
+                        alias: "Fallback to base_occ when no smart_occ sensor/helper configured"
+                        value_template: >-
+                          {{ smart_occ_sensor | length == 0
+                            and smart_occ_helper | length == 0
+                            and is_state(base_occ, 'on') }}
           #- alias: Detected Hold Is Not On and Enabled or Disabled
           #  condition: or
           #  conditions:
