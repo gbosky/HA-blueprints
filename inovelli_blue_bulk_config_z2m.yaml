@@ -3,7 +3,7 @@ blueprint:
   description: >
     # 💡 Inovelli Blue Series Bulk Configuration (Zigbee2MQTT)
 
-    **Version: 1.03**
+    **Version: 1.1**
 
 
     ## One automation that can push settings to one or multiple Inovelli Blue Series devices at the same time!
@@ -1119,6 +1119,19 @@ blueprint:
                 - "New Behavior"
                 - "Down Always Off"
 
+        # P121
+        p121_enable:
+          name: "Enable P121: Fan Timer Mode"
+          default: false
+          selector: { boolean: {} }
+        p121_fan_timer_mode:
+          name: "Value: P121 Fan Timer Mode"
+          description: "Enable or disable advanced timer mode to have the switch act like a bathroom fan timer"
+          default: "Disabled"
+          selector:
+            select:
+              options: ["Disabled", "Enabled"]
+
         # P123
         p123_enable:
           name: "Enable P123: Aux Switch Unique Scenes"
@@ -1958,6 +1971,8 @@ action:
             p100_led_bar_scaling: !input p100_led_bar_scaling
             p120_enable: !input p120_enable
             p120_single_tap_behavior: !input p120_single_tap_behavior
+            p121_enable: !input p121_enable
+            p121_fan_timer_mode: !input p121_fan_timer_mode
             p123_enable: !input p123_enable
             p123_aux_switch_unique_scenes: !input p123_aux_switch_unique_scenes
             p125_enable: !input p125_enable
@@ -2328,6 +2343,14 @@ action:
               data:
                 topic: "zigbee2mqtt/{{ device_name }}/set/singleTapBehavior"
                 payload: "{{ p120_single_tap_behavior }}"
+
+        # P121: Fan Timer Display
+        - if: "{{ p121_enable }}"
+          then:
+            - service: mqtt.publish
+              data:
+                topic: "zigbee2mqtt/{{ device_name }}/set/fanTimerMode"
+                payload: "{{ p121_fan_timer_mode }}"
 
         # P123: Aux Switch Unique Scenes
         - if: "{{ p123_enable }}"
