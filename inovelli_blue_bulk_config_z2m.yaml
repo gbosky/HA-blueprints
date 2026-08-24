@@ -3,7 +3,7 @@ blueprint:
   description: >
     # 💡 Inovelli Blue Series Bulk Configuration (Zigbee2MQTT)
 
-    **Version: 1.1**
+    **Version: 1.2**
 
 
     ## One automation that can push settings to one or multiple Inovelli Blue Series devices at the same time!
@@ -84,6 +84,13 @@ blueprint:
       name: Notification Title
       description: The title for the completion notification. Helpful for differentiating automations based on which configs or groups are being changed.
       default: "✅ Inovelli Bulk Configuration Complete"
+      selector:
+        text:
+
+    mqtt_topic:
+      name: MQTT Topic
+      description: Define the MQTT topic for youre devices
+      default:  "zigbee2mqtt"
       selector:
         text:
 
@@ -1830,6 +1837,7 @@ action:
   - variables:
       raw_targets: !input target_sync_devices
       ui_title: !input notification_title
+      mqtt_topic: !input mqtt_topic
       target_manufature: Inovelli
       target_model:
         [
@@ -2208,7 +2216,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/invertSwitch"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/invertSwitch"
                 payload: "{{ p11_invert_switch }}"
 
         # P17: LED Indicator Timeout
@@ -2216,7 +2224,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/loadLevelIndicatorTimeout"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/loadLevelIndicatorTimeout"
                 payload: "{{ p17_led_indicator_timeout }}"
 
         # P22: Switch Type (Device-Specific Options)
@@ -2224,7 +2232,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/switchType"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/switchType"
                 payload: >
                   {% if is_2in1 %}{{ p22_switch_type_2in1 }}
                   {% else %}{{ p22_switch_type }}{% endif %}
@@ -2234,7 +2242,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/higherOutputInNonNeutral"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/higherOutputInNonNeutral"
                 payload: "{{ p25_non_neutral_output }}"
 
         # P50: Button Delay
@@ -2242,7 +2250,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/buttonDelay"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/buttonDelay"
                 payload: "{{ p50_button_press_delay }}"
 
         # P52: Smart Bulb/Fan Mode (Device-Specific)
@@ -2252,12 +2260,12 @@ action:
               then:
                 - service: mqtt.publish
                   data:
-                    topic: "zigbee2mqtt/{{ device_name }}/set/smartBulbMode"
+                    topic: "{{ mqtt_topic }}/{{ device_name }}/set/smartBulbMode"
                     payload: !input p52_smart_fan_mode
               else:
                 - service: mqtt.publish
                   data:
-                    topic: "zigbee2mqtt/{{ device_name }}/set/smartBulbMode"
+                    topic: "{{ mqtt_topic }}/{{ device_name }}/set/smartBulbMode"
                     payload: !input p52_smart_bulb_mode
 
         # P53: Double Tap Up to Param 55
@@ -2265,7 +2273,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/doubleTapUpToParam55"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/doubleTapUpToParam55"
                 payload: "{{ p53_enable_2x_tap_up }}"
 
         # P54: Double Tap Down to Param 56
@@ -2273,7 +2281,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/doubleTapDownToParam56"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/doubleTapDownToParam56"
                 payload: "{{ p54_enable_2x_tap_down }}"
 
         # P100: LED Bar Scaling
@@ -2281,7 +2289,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/ledBarScaling"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/ledBarScaling"
                 payload: "{{ p100_led_bar_scaling }}"
 
         # ===== mmWAVE SENSOR PARAMETERS (VZM32-SN ONLY) =====
@@ -2291,7 +2299,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/mmwaveControlWiredDevice"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/mmwaveControlWiredDevice"
                 payload: "{{ p110_light_on_presence_behavior }}"
 
         # P112: Detection Sensitivity
@@ -2299,7 +2307,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/mmWaveDetectSensitivity"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/mmWaveDetectSensitivity"
                 payload: "{{ p112_mmwave_detection_sensitivity }}"
 
         # P113: Detection Delay
@@ -2307,7 +2315,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/mmWaveDetectTrigger"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/mmWaveDetectTrigger"
                 payload: "{{ p113_mmwave_detection_delay }}"
 
         # PXXX: MmWave Target Info Report
@@ -2315,7 +2323,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/mmWaveTargetInfoReport"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/mmWaveTargetInfoReport"
                 payload: "{{ p116_mmwave_target_report }}"
 
         # P117: Room Size Preset
@@ -2323,7 +2331,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/mmWaveRoomSizePreset"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/mmWaveRoomSizePreset"
                 payload: "{{ p117_room_size_preset }}"
 
         # PXXX: OTA Image Type
@@ -2331,7 +2339,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/otaImageType"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/otaImageType"
                 payload: "{{ p263_ota_image_type }}"
 
         # ======================================================
@@ -2341,7 +2349,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/singleTapBehavior"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/singleTapBehavior"
                 payload: "{{ p120_single_tap_behavior }}"
 
         # P121: Fan Timer Display
@@ -2349,7 +2357,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/fanTimerMode"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/fanTimerMode"
                 payload: "{{ p121_fan_timer_mode }}"
 
         # P123: Aux Switch Unique Scenes
@@ -2357,7 +2365,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/auxSwitchUniqueScenes"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/auxSwitchUniqueScenes"
                 payload: "{{ p123_aux_switch_unique_scenes }}"
 
         # P125: Binding Off to On Sync Level
@@ -2365,7 +2373,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/bindingOffToOnSyncLevel"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/bindingOffToOnSyncLevel"
                 payload: "{{ p125_binding_default_level }}"
 
         # P130: Fan Control Mode
@@ -2373,7 +2381,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/fanControlMode"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/fanControlMode"
                 payload: "{{ p130_fan_control_mode }}"
 
         # P256: Local Protection
@@ -2381,7 +2389,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/localProtection"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/localProtection"
                 payload: "{{ p256_local_protection }}"
 
         # P258: Output Mode (Device-Specific)
@@ -2391,19 +2399,19 @@ action:
               then:
                 - service: mqtt.publish
                   data:
-                    topic: "zigbee2mqtt/{{ device_name }}/set/outputMode"
+                    topic: "{{ mqtt_topic }}/{{ device_name }}/set/outputMode"
                     payload: !input p258_switch_mode_fan
               else:
                 - service: mqtt.publish
                   data:
-                    topic: "zigbee2mqtt/{{ device_name }}/set/outputMode"
+                    topic: "{{ mqtt_topic }}/{{ device_name }}/set/outputMode"
                     payload: !input p258_switch_mode
         # P259: On/Off LED Mode
         - if: "{{ p259_enable }}"
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/onOffLedMode"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/onOffLedMode"
                 payload: "{{ p259_one_led_mode }}"
 
         # P260: Firmware Update Indicator
@@ -2411,7 +2419,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/firmwareUpdateInProgressIndicator"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/firmwareUpdateInProgressIndicator"
                 payload: "{{ p260_firmware_update_indicator }}"
 
         # P261: Relay Click Sound (2-in-1 ONLY)
@@ -2419,7 +2427,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/relayClick"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/relayClick"
                 payload: !input p261_relay_click_sound
 
         # P262: Double Tap Clear Notifications
@@ -2427,7 +2435,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/doubleTapClearNotifications"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/doubleTapClearNotifications"
                 payload: "{{ p262_clear_notification_2x_tap }}"
 
         # ===== Fan Canopy PARAMETERS (VZM36 ONLY) =====
@@ -2437,7 +2445,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/higherOutputInNonNeutral_1"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/higherOutputInNonNeutral_1"
                 payload: "{{ canopy_p25_light_non_neutral_output }}"
 
         # P26: Dimming Mode - Light Endpoint
@@ -2445,7 +2453,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/dimmingMode_1"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/dimmingMode_1"
                 payload: "{{ canopy_p26_light_dimming_mode }}"
 
         # P52: Smart Bulb Mode - Light Endpoint
@@ -2453,7 +2461,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/smartBulbMode_1"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/smartBulbMode_1"
                 payload: "{{ canopy_p52_light_smart_bulb_mode }}"
 
         # P258: Switch Mode - Light Endpoint
@@ -2461,7 +2469,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/outputMode_1"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/outputMode_1"
                 payload: "{{ canopy_p258_light_switch_mode }}"
 
         # P52: Remote Control Mode - Fan Endpoint
@@ -2469,7 +2477,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/smartBulbMode_2"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/smartBulbMode_2"
                 payload: "{{ canopy_fan_p52_remote_control_mode }}"
 
         # P258: Fan Switch Mode - Fan Endpoint
@@ -2477,7 +2485,7 @@ action:
           then:
             - service: mqtt.publish
               data:
-                topic: "zigbee2mqtt/{{ device_name }}/set/outputMode_2"
+                topic: "{{ mqtt_topic }}/{{ device_name }}/set/outputMode_2"
                 payload: "{{ canopy_fan_p258_switch_mode }}"
 
         # ===== NUMERIC PARAMETERS (Individual Loops) =====
@@ -2596,7 +2604,7 @@ action:
             sequence:
               - service: mqtt.publish
                 data:
-                  topic: "zigbee2mqtt/{{ device_name }}/set/{{ repeat.item.key }}"
+                  topic: "{{ mqtt_topic }}/{{ device_name }}/set/{{ repeat.item.key }}"
                   payload: "{{ repeat.item.val }}"
               - delay:
                   milliseconds: 200
