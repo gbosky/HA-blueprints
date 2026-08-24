@@ -89,7 +89,7 @@ blueprint:
 
     mqtt_topic:
       name: MQTT Topic
-      description: Define the MQTT topic for youre devices
+      description: Define the MQTT topic for your devices
       default:  "zigbee2mqtt"
       selector:
         text:
