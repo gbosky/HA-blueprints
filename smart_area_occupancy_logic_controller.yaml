@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: |
-    **Version: 2.1.0**
+    **Version: 2.1.1**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -679,6 +679,18 @@ blueprint:
                 - button
                 - input_button
                 - switch
+              multiple: true
+
+        manual_button_mqtt_topics:
+          name: Manual Control Buttons - MQTT Topics (Zigbee2MQTT)
+          description: >
+            For buttons that don't have an HA entity (e.g. Zigbee2MQTT without event entities). One topic per
+            device, up to 6, e.g. `zigbee2mqtt/TV Room Switch/action` (payload = the press value, such as
+            `up_single`). The device's main topic (`zigbee2mqtt/TV Room Switch`) also works - its JSON `action`
+            is read - but the `/action` topic is preferred. Uses the same press lists and action as the entities above.
+          default: []
+          selector:
+            text:
               multiple: true
 
         manual_button_action:
@@ -1882,6 +1894,7 @@ trigger_variables:
   tv_base: !input base_occ
   tv_grace: !input light_off_grace
   tv_override_helper: !input manual_override_helper
+  tv_mqtt_topics: !input manual_button_mqtt_topics
   tv_override_scope: !input override_scope
   tv_reset_modes: !input override_reset_modes
   tv_override_timeout: !input override_timeout
@@ -2158,6 +2171,32 @@ triggers:
     trigger: state
     id: manual button
     entity_id: !input manual_button_entities
+  # MQTT button topics (Zigbee2MQTT). A trigger can't take a list of topics, so there are 6 fixed
+  # slots; unused slots listen on a topic nothing publishes to.
+  - alias: Manual Control Button (MQTT topic 1)
+    trigger: mqtt
+    id: manual button
+    topic: "{{ tv_mqtt_topics[0] if tv_mqtt_topics | length > 0 else 'smart_area_occupancy/unused' }}"
+  - alias: Manual Control Button (MQTT topic 2)
+    trigger: mqtt
+    id: manual button
+    topic: "{{ tv_mqtt_topics[1] if tv_mqtt_topics | length > 1 else 'smart_area_occupancy/unused' }}"
+  - alias: Manual Control Button (MQTT topic 3)
+    trigger: mqtt
+    id: manual button
+    topic: "{{ tv_mqtt_topics[2] if tv_mqtt_topics | length > 2 else 'smart_area_occupancy/unused' }}"
+  - alias: Manual Control Button (MQTT topic 4)
+    trigger: mqtt
+    id: manual button
+    topic: "{{ tv_mqtt_topics[3] if tv_mqtt_topics | length > 3 else 'smart_area_occupancy/unused' }}"
+  - alias: Manual Control Button (MQTT topic 5)
+    trigger: mqtt
+    id: manual button
+    topic: "{{ tv_mqtt_topics[4] if tv_mqtt_topics | length > 4 else 'smart_area_occupancy/unused' }}"
+  - alias: Manual Control Button (MQTT topic 6)
+    trigger: mqtt
+    id: manual button
+    topic: "{{ tv_mqtt_topics[5] if tv_mqtt_topics | length > 5 else 'smart_area_occupancy/unused' }}"
   - alias: Override Timeout
     trigger: state
     id: override timeout
@@ -2667,6 +2706,15 @@ actions:
         sequence:
           - variables:
               button_value: >-
+                {%- if trigger.platform == 'mqtt' -%}
+                  {#- MQTT (Zigbee2MQTT): /action topic payload is the press value; a main device topic carries JSON with 'action' -#}
+                  {%- set j = trigger.payload_json if trigger.payload_json is defined else none -%}
+                  {%- if j is mapping -%}
+                    {{ j.get('action') or '' }}
+                  {%- else -%}
+                    {{ trigger.payload | default('') }}
+                  {%- endif -%}
+                {%- else -%}
                 {%- set f = trigger.from_state -%}
                 {%- set t = trigger.to_state -%}
                 {#- A press: the new state is a real value. Z2M action sensors rest at '' between presses and
@@ -2680,6 +2728,7 @@ actions:
                   press
                 {%- else -%}
                   {{ t.state }}
+                {%- endif -%}
                 {%- endif -%}
               button_cmd: >-
                 {%- set v = button_value | trim -%}
@@ -2891,7 +2940,8 @@ actions:
   - alias: "Delegate to secondary lighting script"
     if:
       - "{{ lighting_script_ok }}"
-      - "{{ state_changed or light_cmd != 'none' or is_occ_trigger or trig_id in transition_ids }}"
+      - "{{ state_changed or light_cmd != 'none' or is_occ_trigger or trig_id in transition_ids
+            or (time_window_enabled and trig_id in ['time window start', 'time window end']) }}"
     then:
       - action: script.turn_on
         target:
