@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy - Lighting Script 💡🕹️"
   description: |
-    **Version: 2.0.0**
+    **Version: 2.1.0**
 
     This script is a companion to the **Smart Area Occupancy** blueprint.
     The controller treats it like one more light that receives a much richer command:
@@ -25,7 +25,7 @@ blueprint:
        controller's sun/illuminance checks, light-off grace period, light skip and manual override.
        Put your main lighting logic here (branch on time of day, holds, etc.).
     2. **Events** - one-shot moments: occupancy detected/cleared, manual override started/released,
-       light skip activated/released, automation control disabled.
+       light skip activated/released, time window opened/closed, automation control disabled.
     3. **State Blocks** - level conditions that are true for as long as they last (entering active,
        hold active, ...). These fire on *every* call while true, so use them for context, not one-shot actions.
 
@@ -49,7 +49,10 @@ blueprint:
     - `light_skip_is_on` / `light_skip_event` (`activated` / `released` / `none`)
     - `manual_override_is_on` / `override_event` (`started` / `released` / `none`)
     - `automation_control_is_disabled`
-    - `env_allows_on` / `env_too_bright` / `illuminance` / `sun_elevation`
+    - `env_allows_on` (sun / lux / time window) / `env_too_bright` / `illuminance` / `sun_elevation`
+    - `time_in_window` → Inside the controller's time window (true when it's disabled)
+    - `manual_button_command` → `on` / `off` from a manual control button press
+    - Time window edges arrive with `last_triggered_by` = `time window start` / `time window end`
     - `grace_pending` → Area cleared but the light-off grace period is still running
     - `last_triggered_by` / `trigger_entity` → Trigger ID and entity behind this update
     - `state` (or your **Script Field Key**) → Same value as `smart_occupancy_state`
@@ -194,8 +197,16 @@ fields:
     example: "none"
     required: false
   env_allows_on:
-    description: "Sun / illuminance conditions allow lights to turn on"
+    description: "Sun / illuminance / time window conditions allow lights to turn on"
     example: "true"
+    required: false
+  time_in_window:
+    description: "Inside the controller's time window (always true when the time window is disabled)"
+    example: "true"
+    required: false
+  manual_button_command:
+    description: "on / off sent by a manual control button press (only on button-press updates)"
+    example: "off"
     required: false
   env_too_bright:
     description: "Sun / illuminance say it is bright enough to turn lights off"
@@ -271,6 +282,10 @@ sequence:
 
 
         Env Allows On / Too Bright:         {{ env_allows_on | default('not provided') }} / {{ env_too_bright | default('not provided') }}
+
+        Time In Window:                     {{ time_in_window | default('not provided') }}
+
+        Manual Button Command:              {{ manual_button_command | default('not provided') }}
 
         Illuminance / Sun Elevation:        {{ illuminance | default('not provided') }} / {{ sun_elevation | default('not provided') }}
 
@@ -355,7 +370,7 @@ sequence:
         data:
           title: "Event — Manual Override Started"
           notification_id: "occupancy_override_started"
-          message: "A manual light change paused automatic control — replace this with your actions"
+          message: "A manual light change or button press paused automatic control — replace this with your actions"
 
   - alias: "Event - Manual Override Released"
     if:
@@ -380,6 +395,20 @@ sequence:
           title: "Event — Light Skip {{ light_skip_event | default('') | title }}"
           notification_id: "occupancy_light_skip_event"
           message: "Light skip was {{ light_skip_event }} — replace this with your actions"
+
+  - alias: "Event - Time Window Opened / Closed"
+    if:
+      - condition: template
+        value_template: "{{ last_triggered_by | default('') in ['time window start', 'time window end'] }}"
+    then:
+      - alias: "🔧 YOUR ACTIONS HERE — Time Window Edge"
+        action: persistent_notification.create
+        data:
+          title: "Event — Time Window {{ 'Opened' if last_triggered_by == 'time window start' else 'Closed' }}"
+          notification_id: "occupancy_time_window_edge"
+          message: >-
+            The time window {{ 'opened' if last_triggered_by == 'time window start' else 'closed' }}
+            (the controller's start/end action is already in light_command) — replace this with your actions
 
   - alias: "Event - Automation Control Disabled"
     if:
