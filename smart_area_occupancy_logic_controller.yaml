@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: |
-    **Version: 2.0.0**
+    **Version: 2.1.0**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -27,7 +27,7 @@ blueprint:
 
     - **Template Sensor Integration** - Push occupancy state to custom sensor via event in case you want to build your own binary sensor, with optional attributes to track which conditions are active and caused the current state of smart area occupancy
 
-    - **Light Control** - Built-in simple light on/off control to follow logical calculated smart occupancy state, with sun elevation and illuminance thresholds
+    - **Light Control** - Built-in simple light on/off control to follow logical calculated smart occupancy state, with sun elevation, illuminance and time window conditions (every enabled one must allow turning on)
 
     - **Manual Override** - Pause light control when lights are changed by hand, with room-tunable reset buffers
 
@@ -222,11 +222,16 @@ blueprint:
 
     - **Detection** - on/off changes (and optionally brightness/color changes) on the *Monitored Entities*. Choose what counts:
       any non-automation change, dashboard/app/voice only, or anything not made by *this* automation (also counts smart buttons/remotes run by other automations).
+    - **Buttons / remotes** - list smart-bulb-mode switches (Inovelli), Hue dimmers or Zigbee buttons under *Manual Control Buttons*.
+      A press always switches the Monitored Lights (on / off / toggle per the press lists), even while automation control has the
+      automation disabled, and starts the override. Lighting scripts receive `override_event: started` and `manual_button_command`.
     - **While active** - light commands are frozen (occupancy still tracks), or the whole automation is frozen, per your setting.
     - **Reset** - automatically, using one or both of:
       - **Area clear** - smart occupancy has been *off* for the **Area Clear Buffer**. The buffer is the grace time that stops a brief mis-detection in an occupied room from cancelling your override. Set it per room.
       - **Timeout** - a hard limit since the override started (0 disables).
-    - **On release** - lights re-sync to the current smart occupancy state, or are left alone.
+    - **On release** - lights re-sync to the current smart occupancy state, turn off only if the area is clear
+      (an occupied area keeps whatever the lights are doing), or are left alone. An optional **Release Sync Delay**
+      postpones the sync: if smart occupancy changes during the delay the normal triggers handle the lights, otherwise they sync at the end.
     - Requires an **Override Helper** (`input_boolean`) so the state survives restarts.
 
     ## ⏱️ Timing
@@ -657,6 +662,69 @@ blueprint:
                 - switch
               multiple: true
 
+        manual_button_entities:
+          name: Manual Control Buttons / Remotes
+          description: >
+            Wall switches in smart-bulb mode (e.g. Inovelli), Hue dimmers/taps, Zigbee buttons and remotes that count as
+            manual control. Pick their event entity (preferred), action sensor, button or input_button. A press always
+            controls the lights (even while automation control has disabled this automation) and starts the override.
+            Use the press lists below to decide which presses turn lights on, off or toggle.
+          default: []
+          selector:
+            entity:
+              domain:
+                - event
+                - sensor
+                - binary_sensor
+                - button
+                - input_button
+                - switch
+              multiple: true
+
+        manual_button_action:
+          name: Button Press Action
+          description: >
+            "Control lights" switches the Monitored Lights (or the light target when none are monitored) and starts the
+            override. "Start override only" is for buttons that already switch the lights themselves.
+          default: "control"
+          selector:
+            select:
+              options:
+                - label: "Control lights and start override"
+                  value: "control"
+                - label: "Start override only"
+                  value: "override_only"
+
+        manual_button_on_presses:
+          name: Presses That Turn Lights ON
+          description: >
+            Event types (event entities) or states (action sensors / binary sensors / switches) that turn the lights on,
+            e.g. `up_single`, `on_press`, `multi_press_1`. Check the entity's attributes in Developer Tools for the exact values.
+          default: []
+          selector:
+            text:
+              multiple: true
+
+        manual_button_off_presses:
+          name: Presses That Turn Lights OFF
+          description: >
+            Event types or states that turn the lights off, e.g. `down_single`, `off_press`.
+          default: []
+          selector:
+            text:
+              multiple: true
+
+        manual_button_toggle_presses:
+          name: Presses That Toggle Lights
+          description: >
+            Event types or states that toggle the lights, e.g. `short_release`, `toggle`. If all three press lists are
+            empty, every press toggles (best for simple buttons / input_buttons). Any value not listed is ignored, so
+            hold/release events of multi-event remotes don't fire twice.
+          default: []
+          selector:
+            text:
+              multiple: true
+
         override_detection:
           name: Manual Change Detection
           description: >
@@ -737,6 +805,8 @@ blueprint:
           name: When Override Resets
           description: >
             "Sync lights" applies the current smart occupancy state to the lights (on if occupied, off if clear).
+            "Turn lights off only if the area is clear" never changes lights in an occupied area (a release while you
+            are in the room keeps them on or off as they are) but turns them off when the override ends in an empty area.
             "Do nothing" leaves the lights as they are until the next occupancy change.
           default: "sync"
           selector:
@@ -744,8 +814,23 @@ blueprint:
               options:
                 - label: "Sync lights to smart occupancy"
                   value: "sync"
+                - label: "Turn lights off only if the area is clear (leave them alone while occupied)"
+                  value: "off_if_clear"
                 - label: "Do nothing"
                   value: "none"
+
+        override_release_delay:
+          name: Release Sync Delay
+          description: >
+            Not used with "Do nothing". Instead of syncing the moment the override resets, wait this long. If smart
+            occupancy changes during the delay, the normal occupancy triggers handle the lights and the sync is skipped.
+            If nothing happens, the lights sync at the end of the delay. A new manual change cancels it. 0 = sync immediately.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
 
     # --- Advance Logic Controls ---
     logic_controls:
@@ -1451,6 +1536,108 @@ blueprint:
               step: 0.1
               unit_of_measurement: "°"
 
+    # --- Time Window ---
+    time_window_section:
+      name: Light Control - Time Window Conditions
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        use_time_window:
+          name: Use Time Window Conditions
+          description: >
+            Use this if you want a time window to determine if lights should turn on, just like sun elevation and
+            illuminance: outside the window occupancy won't turn lights on; turning them off when the area clears
+            works at any time. Every enabled condition must allow a turn-on. Disabled = 24 hours a day.
+          default: "time_window_disabled"
+          selector:
+            select:
+              options:
+                - label: "Enable Time Window Conditions"
+                  value: "time_window_enabled"
+                - label: "Disable Time Window Conditions"
+                  value: "time_window_disabled"
+
+        time_window_start:
+          name: Window Start
+          description: >
+            Lights may turn on from this time.
+          default: "06:00:00"
+          selector:
+            time:
+
+        time_window_end:
+          name: Window End
+          description: >
+            Lights no longer turn on from this time. An end earlier than the start spans midnight (e.g. 06:00 → 01:00).
+          default: "23:00:00"
+          selector:
+            time:
+
+        time_window_start_action:
+          name: At Window Start
+          description: >
+            One-time action when the window opens. Skipped during a manual override or light skip.
+          default: "on_if_occupied"
+          selector:
+            select:
+              options:
+                - label: "Do nothing"
+                  value: "none"
+                - label: "Turn lights ON if occupied"
+                  value: "on_if_occupied"
+                - label: "Turn lights OFF if occupied"
+                  value: "off_if_occupied"
+                - label: "Turn lights ON if unoccupied"
+                  value: "on_if_clear"
+                - label: "Turn lights OFF if unoccupied"
+                  value: "off_if_clear"
+                - label: "Turn lights ON always"
+                  value: "on_always"
+                - label: "Turn lights OFF always"
+                  value: "off_always"
+
+        time_window_start_follow_env:
+          name: Window Start Follows Sun / Illuminance
+          description: >
+            On: the start action only happens if the enabled sun / illuminance conditions agree (ON needs it to be
+            dark enough, OFF needs it to be bright). Off: the start action ignores sun / illuminance.
+          default: true
+          selector:
+            boolean:
+
+        time_window_end_action:
+          name: At Window End
+          description: >
+            One-time action when the window closes. Skipped during a manual override or light skip.
+          default: "off_if_occupied"
+          selector:
+            select:
+              options:
+                - label: "Do nothing"
+                  value: "none"
+                - label: "Turn lights ON if occupied"
+                  value: "on_if_occupied"
+                - label: "Turn lights OFF if occupied"
+                  value: "off_if_occupied"
+                - label: "Turn lights ON if unoccupied"
+                  value: "on_if_clear"
+                - label: "Turn lights OFF if unoccupied"
+                  value: "off_if_clear"
+                - label: "Turn lights ON always"
+                  value: "on_always"
+                - label: "Turn lights OFF always"
+                  value: "off_always"
+
+        time_window_end_follow_env:
+          name: Window End Follows Sun / Illuminance
+          description: >
+            On: the end action only happens if the enabled sun / illuminance conditions agree (ON needs it to be
+            dark enough, OFF needs it to be bright). Off: the end action ignores sun / illuminance (e.g. lights
+            always off at the end of the window).
+          default: false
+          selector:
+            boolean:
+
 variables:
   # ============================================================================
   # STATIC VARIABLES - derived from blueprint inputs.
@@ -1572,6 +1759,14 @@ variables:
   lux_enabled: "{{ use_lux == 'use_lux_enabled' and lux_sensor | length > 0 }}"
   lux_off_enabled: "{{ lux_enabled and lux_turn_off_when_bright }}"
   sun_enabled: "{{ use_sun == 'sun_enabled' }}"
+  use_time_window: !input use_time_window
+  time_window_start: !input time_window_start
+  time_window_end: !input time_window_end
+  time_window_start_action: !input time_window_start_action
+  time_window_end_action: !input time_window_end_action
+  time_window_start_follow_env: !input time_window_start_follow_env
+  time_window_end_follow_env: !input time_window_end_follow_env
+  time_window_enabled: "{{ use_time_window == 'time_window_enabled' and time_window_start != time_window_end }}"
 
   # --- Timing: every duration input converted to seconds ---
   delay_inputs:
@@ -1580,6 +1775,7 @@ variables:
     grace: !input light_off_grace
     override_timeout: !input override_timeout
     override_clear: !input override_clear_delay
+    override_release: !input override_release_delay
     entering_on: !input entering_delay_on
     entering_off: !input entering_delay_off
     leaving_on: !input leaving_delay_on
@@ -1617,6 +1813,11 @@ variables:
   override_scope: !input override_scope
   override_reset_modes: !input override_reset_modes
   override_release_action: !input override_release_action
+  manual_button_entities: !input manual_button_entities
+  manual_button_action: !input manual_button_action
+  manual_button_on_presses: !input manual_button_on_presses
+  manual_button_off_presses: !input manual_button_off_presses
+  manual_button_toggle_presses: !input manual_button_toggle_presses
   override_enabled: "{{ use_manual_override == 'override_enabled' and manual_override_helper | length > 0 }}"
   override_attrs: ['brightness', 'color_temp_kelvin', 'color_temp', 'hs_color', 'rgb_color', 'rgbw_color', 'rgbww_color', 'xy_color', 'effect']
 
@@ -1660,12 +1861,14 @@ variables:
     detected hold off: detected_hold
     clear hold on: cleared_hold
     clear hold off: cleared_hold
-  env_ids: ['sun setting threshold', 'sun rising threshold', 'illuminance low limit', 'illuminance high limit']
+  env_ids: ['sun setting threshold', 'sun rising threshold', 'illuminance low limit', 'illuminance high limit', 'time window start', 'time window end']
   quiet_ids:
     - sun setting threshold
     - sun rising threshold
     - illuminance low limit
     - illuminance high limit
+    - time window start
+    - time window end
     - light grace expired
     - light grace safety
   grace_ids: ['light grace expired', 'light grace safety']
@@ -1901,6 +2104,14 @@ triggers:
     above: !input lux_high_val
     id: illuminance high limit
     for: !input lux_high_val_delay
+  - alias: Time Window Opens
+    trigger: time
+    at: !input time_window_start
+    id: time window start
+  - alias: Time Window Closes
+    trigger: time
+    at: !input time_window_end
+    id: time window end
 
   # --- Light-off grace period (fires only if smart occupancy STAYS off) ---
   # The run checks the age of the entity that actually stores smart occupancy,
@@ -1941,6 +2152,12 @@ triggers:
     trigger: state
     id: manual change
     entity_id: !input override_entities
+  # Button / remote presses: no from/to filter (event entities change to a new timestamp each press);
+  # the run ignores attribute-only changes and unavailable/unknown.
+  - alias: Manual Control Button Pressed
+    trigger: state
+    id: manual button
+    entity_id: !input manual_button_entities
   - alias: Override Timeout
     trigger: state
     id: override timeout
@@ -1952,6 +2169,13 @@ triggers:
     id: override released
     entity_id: !input manual_override_helper
     to: "off"
+  - alias: Override Release Sync (after Release Sync Delay)
+    trigger: state
+    id: override release sync
+    entity_id: !input manual_override_helper
+    from: "on"
+    to: "off"
+    for: !input override_release_delay
   # Area-clear reset: any of these starting a `for:` timer leads to the same check
   - alias: Override Area Clear (override started while already clear)
     trigger: state
@@ -2020,6 +2244,9 @@ conditions:
       - alias: The disabling transition itself (applies the fallback state)
         condition: trigger
         id: automation disabled
+      - alias: A manual control button always works
+        condition: trigger
+        id: manual button
 
 actions:
   # ============================================================================
@@ -2285,7 +2512,15 @@ actions:
       sun_bright: "{{ (sun_elev > sun_rising | float(90)) if sun_rising_now else (sun_elev > sun_falling | float(90)) }}"
       lux_dark: "{{ lux_val is none or lux_val < lux_low_val | float(0) }}"
       lux_bright: "{{ lux_val is not none and lux_val > lux_high_val | float(0) }}"
-      env_allows_on: "{{ (not sun_enabled or sun_dark) and (not lux_enabled or lux_dark) }}"
+      # Time window: string compare on HH:MM:SS; an end before the start spans midnight
+      time_in_window: >-
+        {%- set n = now().strftime('%H:%M:%S') -%}
+        {%- set s = (time_window_start | string)[:8] -%}
+        {%- set e = (time_window_end | string)[:8] -%}
+        {{ (s <= n < e) if s < e else (n >= s or n < e) }}
+      # Sun / lux only - window-edge actions use this (at window end the window itself is already closed)
+      sun_lux_allows_on: "{{ (not sun_enabled or sun_dark) and (not lux_enabled or lux_dark) }}"
+      env_allows_on: "{{ sun_lux_allows_on and (not time_window_enabled or time_in_window) }}"
       # Lux only counts toward turning lights OFF when explicitly enabled (avoids the lights-raise-lux loop)
       env_too_bright: "{{ (sun_enabled or lux_off_enabled) and (not sun_enabled or sun_bright) and (not lux_off_enabled or lux_bright) }}"
 
@@ -2318,6 +2553,24 @@ actions:
           {{ 'on' if (skip_apply_state == 'on' and env_allows_on) else ('off' if skip_apply_state == 'off' else 'none') }}
         {%- elif override_frozen or light_skip_is_on -%}
           none
+        {%- elif trig_id in ['time window start', 'time window end'] and time_window_enabled -%}
+          {#- One-time window edge action: on/off, optionally only when occupied / clear -#}
+          {%- set is_start = trig_id == 'time window start' -%}
+          {%- set a = time_window_start_action if is_start else time_window_end_action -%}
+          {%- set follow = time_window_start_follow_env if is_start else time_window_end_follow_env -%}
+          {%- set occ_ok = (a.endswith('_if_occupied') and calc_smart_occ == 'on')
+                           or (a.endswith('_if_clear') and calc_smart_occ == 'off')
+                           or a.endswith('_always') -%}
+          {#- Following sun / lux: ON needs it dark enough, OFF needs it bright (no sun / lux enabled = always agrees) -#}
+          {%- set env_on_ok = not follow or sun_lux_allows_on -%}
+          {%- set env_off_ok = not follow or not (sun_enabled or lux_enabled) or not sun_lux_allows_on -%}
+          {%- if a == 'none' or not occ_ok -%}
+            none
+          {%- elif a.startswith('on_') -%}
+            {{ 'on' if env_on_ok else 'none' }}
+          {%- else -%}
+            {{ 'off' if env_off_ok else 'none' }}
+          {%- endif -%}
         {%- elif (trig_id == 'sun setting threshold' and sun_enabled) or (trig_id == 'illuminance low limit' and lux_enabled) -%}
           {{ 'on' if (calc_smart_occ == 'on' and env_allows_on and not any_switchable_on) else 'none' }}
         {%- elif (trig_id == 'sun rising threshold' and sun_enabled) or (trig_id == 'illuminance high limit' and lux_off_enabled) -%}
@@ -2326,8 +2579,22 @@ actions:
           none
         {%- elif trig_id in grace_ids -%}
           {{ 'off' if grace_due else 'none' }}
+        {%- elif trig_id == 'override release sync' -%}
+          {#- Delayed sync: skipped when there's no delay (already synced), the override is back on,
+              or smart occupancy changed since the release (occupancy triggers already handled the lights) -#}
+          {%- if override_release_action == 'none' or delay_secs.override_release == 0 or override_active
+                 or (not stateless and as_timestamp(states[storage_entity].last_changed) > as_timestamp(states[manual_override_helper].last_changed) + 2) -%}
+            none
+          {%- elif calc_smart_occ == 'on' -%}
+            {{ 'on' if (override_release_action == 'sync' and env_allows_on) else 'none' }}
+          {%- else -%}
+            off
+          {%- endif -%}
         {%- elif trig_id == 'override released' -%}
-          {%- if override_release_action != 'sync' -%}
+          {#- off_if_clear: an occupied area keeps whatever the lights are doing; a clear area turns them off -#}
+          {%- if override_release_action == 'none' or delay_secs.override_release > 0 -%}
+            none
+          {%- elif calc_smart_occ == 'on' and override_release_action == 'off_if_clear' -%}
             none
           {%- elif calc_smart_occ == 'on' -%}
             {{ 'on' if env_allows_on else 'none' }}
@@ -2382,6 +2649,7 @@ actions:
         override_event: "{{ 'released' if trig_id == 'override released' else 'none' }}"
         env_allows_on: "{{ env_allows_on }}"
         env_too_bright: "{{ env_too_bright }}"
+        time_in_window: "{{ not time_window_enabled or time_in_window }}"
         illuminance: "{{ lux_val }}"
         sun_elevation: "{{ sun_elev }}"
         last_triggered_by: "{{ trig_id }}"
@@ -2393,6 +2661,90 @@ actions:
   # ============================================================================
   - alias: "Manual override housekeeping"
     choose:
+      - alias: "Manual control button pressed -> control lights + start override"
+        conditions:
+          - "{{ trig_id == 'manual button' }}"
+        sequence:
+          - variables:
+              button_value: >-
+                {%- set f = trigger.from_state -%}
+                {%- set t = trigger.to_state -%}
+                {#- A press: the new state is a real value. Z2M action sensors rest at '' between presses and
+                    a new event entity starts 'unknown', so only 'unavailable' is filtered on the old state
+                    (a device reconnecting restores its last event, which isn't a new press) -#}
+                {%- set bad = ['unavailable', 'unknown', 'none', ''] -%}
+                {%- if f is none or t is none or f.state == 'unavailable' or t.state in bad or f.state == t.state -%}
+                {%- elif t.domain == 'event' -%}
+                  {{ t.attributes.get('event_type', '') }}
+                {%- elif t.domain in ['button', 'input_button'] -%}
+                  press
+                {%- else -%}
+                  {{ t.state }}
+                {%- endif -%}
+              button_cmd: >-
+                {%- set v = button_value | trim -%}
+                {%- set lists_empty = (manual_button_on_presses + manual_button_off_presses + manual_button_toggle_presses) | length == 0 -%}
+                {%- if v in ['', 'off'] and lists_empty -%}
+                  none
+                {%- elif lists_empty or v in manual_button_toggle_presses -%}
+                  toggle
+                {%- elif v in manual_button_on_presses -%}
+                  on
+                {%- elif v in manual_button_off_presses -%}
+                  off
+                {%- else -%}
+                  none
+                {%- endif -%}
+              button_targets: >-
+                {%- set mon = [override_entities] if override_entities is string else override_entities -%}
+                {{ (mon if mon | length > 0 else switchable_entities) | select('match', '(light|switch)[.]') | list }}
+              button_light_cmd: >-
+                {%- if button_cmd == 'toggle' -%}
+                  {{ 'off' if button_targets | select('is_state', 'on') | list | length > 0 else 'on' }}
+                {%- else -%}
+                  {{ button_cmd }}
+                {%- endif -%}
+              button_starts_override: "{{ button_cmd != 'none' and override_enabled and not override_active and not automation_control_is_disabled }}"
+          - condition: template
+            value_template: "{{ button_cmd != 'none' }}"
+          # Lights first so the press feels instant; the helper follows
+          - if:
+              - "{{ manual_button_action == 'control' and button_light_cmd in ['on', 'off'] }}"
+            then:
+              - if:
+                  - "{{ button_targets | select('match', 'light[.]') | list | length > 0 }}"
+                then:
+                  - action: "light.turn_{{ button_light_cmd }}"
+                    target:
+                      entity_id: "{{ button_targets | select('match', 'light[.]') | list }}"
+              - if:
+                  - "{{ button_targets | select('match', 'switch[.]') | list | length > 0 }}"
+                then:
+                  - action: "switch.turn_{{ button_light_cmd }}"
+                    target:
+                      entity_id: "{{ button_targets | select('match', 'switch[.]') | list }}"
+          - if:
+              - "{{ button_starts_override }}"
+            then:
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: "{{ manual_override_helper }}"
+          - if:
+              - "{{ lighting_script_ok and not automation_control_is_disabled }}"
+            then:
+              - action: script.turn_on
+                target:
+                  entity_id: "{{ lighting_script }}"
+                data:
+                  variables: >-
+                    {{ script_data | combine({'manual_override_is_on': override_active or button_starts_override,
+                       'override_event': 'started' if button_starts_override else 'none',
+                       'manual_button_command': button_light_cmd,
+                       'light_command': 'none', 'light_turn_on': false, 'light_turn_off': false,
+                       'trigger_entity': trigger_entity}) }}
+                continue_on_error: true
+          - stop: "Manual button handled"
+
       - alias: "Manual change detected -> start override"
         conditions:
           - "{{ trig_id == 'manual change' }}"
