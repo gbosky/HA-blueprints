@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: |
-    **Version: 2.1.1**
+    **Version: 2.1.2**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -375,6 +375,17 @@ blueprint:
         entity:
           domain: script
           multiple: false
+
+    lighting_script_refresh_entities:
+      name: Lighting Script Refresh Entities (Optional)
+      description: >
+        Extra entities the Secondary Lighting Script depends on (e.g. a desk zone, a day/dusk/night sensor,
+        a lamp's manual-control helper). Any state change re-runs the lighting script with
+        `last_triggered_by: script refresh`. They never affect smart occupancy.
+      default: []
+      selector:
+        entity:
+          multiple: true
 
     # --- Advanced Light Controls ---
     advanced_light_controls:
@@ -1881,6 +1892,7 @@ variables:
     - illuminance high limit
     - time window start
     - time window end
+    - script refresh
     - light grace expired
     - light grace safety
   grace_ids: ['light grace expired', 'light grace safety']
@@ -2197,6 +2209,12 @@ triggers:
     trigger: mqtt
     id: manual button
     topic: "{{ tv_mqtt_topics[5] if tv_mqtt_topics | length > 5 else 'smart_area_occupancy/unused' }}"
+  # Lighting script dependencies: re-run the script only (state changes, not attribute noise)
+  - alias: Lighting Script Refresh Entity Changed
+    trigger: state
+    id: script refresh
+    entity_id: !input lighting_script_refresh_entities
+    to: ~
   - alias: Override Timeout
     trigger: state
     id: override timeout
@@ -2941,7 +2959,8 @@ actions:
     if:
       - "{{ lighting_script_ok }}"
       - "{{ state_changed or light_cmd != 'none' or is_occ_trigger or trig_id in transition_ids
-            or (time_window_enabled and trig_id in ['time window start', 'time window end']) }}"
+            or (time_window_enabled and trig_id in ['time window start', 'time window end'])
+            or trig_id == 'script refresh' }}"
     then:
       - action: script.turn_on
         target:
