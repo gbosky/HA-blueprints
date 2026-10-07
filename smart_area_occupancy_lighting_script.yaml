@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy - Lighting Script 💡🕹️"
   description: |
-    **Version: 2.1.0**
+    **Version: 2.1.1**
 
     This script is a companion to the **Smart Area Occupancy** blueprint.
     The controller treats it like one more light that receives a much richer command:
@@ -53,6 +53,7 @@ blueprint:
     - `time_in_window` → Inside the controller's time window (true when it's disabled)
     - `manual_button_command` → `on` / `off` from a manual control button press
     - Time window edges arrive with `last_triggered_by` = `time window start` / `time window end`
+    - Changes of the controller's *Lighting Script Refresh Entities* arrive with `last_triggered_by` = `script refresh`
     - `grace_pending` → Area cleared but the light-off grace period is still running
     - `last_triggered_by` / `trigger_entity` → Trigger ID and entity behind this update
     - `state` (or your **Script Field Key**) → Same value as `smart_occupancy_state`
