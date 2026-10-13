@@ -1,7 +1,7 @@
 blueprint:
   name: "Smart Area Occupancy 💠"
   description: |
-    **Version: 2.1.2**
+    **Version: 2.1.3**
 
     This blueprint provides both a flexible and robust way to manage occupancy detection in an area that can have multiple sensors.
     You can simply just provide a single occupancy sensor and a light and the automation will take care of the rest.
@@ -2520,8 +2520,9 @@ actions:
         {%- set f = trigger.from_state if trig_id == 'manual change' else none -%}
         {%- set t = trigger.to_state if trig_id == 'manual change' else none -%}
         {%- set bad = ['unavailable', 'unknown'] -%}
+        {#- `{{ false }}`, not a bare `false`: bare text renders as the truthy string 'false' -#}
         {%- if f is none or t is none or f.state in bad or t.state in bad -%}
-          false
+          {{ false }}
         {%- else -%}
           {%- set ns = namespace(attr=false, own=[]) -%}
           {%- if override_attribute_changes and f.state == 'on' and t.state == 'on' -%}
@@ -2533,7 +2534,7 @@ actions:
           {%- endif -%}
           {%- set c = t.context -%}
           {%- if f.state == t.state and not ns.attr -%}
-            false
+            {{ false }}
           {%- elif override_detection == 'user_only' -%}
             {{ c.user_id is not none }}
           {%- elif override_detection == 'not_this' -%}
